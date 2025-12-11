@@ -37,7 +37,14 @@ Recent technologies such as adaptive optics have improved our ability to compens
 \section{Theory}
 
 \subsection{Hermitian ``Transfer Matrix"}
-If we take the transfer matrix, $\T$, and multiply by the complex conjugate, $\T^*$, we obtain a Hermitian matrix, $\T_H$. By finding the eigenvalues of this matrix, instead of those of $\T$, we obtain a different set of modes that are guaranteed to be orthogonal to one another. These modes are not exactly eigenmodes of the channel however. They propagate through the channel and are distinguishable from one another at all times.  
+If we take the transfer matrix, $\T$, and multiply by the complex conjugate, $\T^*$, we obtain a Hermitian matrix, $\T_H$.
+By finding the eigenvalues of this matrix, instead of those of $\T$, we obtain a different set of modes that are guaranteed to be orthogonal to one another.
+These modes are not exactly eigenmodes of the channel however.
+They propagate through the channel and are distinguishable from one another at all times. If you try to measure in the basis of the original mode however, there is high crosstalk as the mode does not stay the same in propagation.
+
+Eigenmodes however are not guaranteed to be orthogonal so it is a tough thing to know what to do with that information.
+Should we use the `Hermitian' eigenmodes that are orthogonal but change form in propagation, or should we use the `non-Hermitian' eigenmodes that are not guaranteed to be orthogonal, but maintain their exact mode throughout the channel?
+
 
 \section{Simulations}
 
