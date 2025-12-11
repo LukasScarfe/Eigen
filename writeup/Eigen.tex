@@ -9,6 +9,8 @@
 \newcommand{\bra}[1]{\left\langle #1 \right|}
 \newcommand{\ket}[1]{\left| #1 \right\rangle}
 \newcommand{\braket}[2]{\left\langle {#1{\left|\vphantom{#1 #2} \right.} #2} \right\rangle}
+
+\newcommand{\T}{\mathcal{T}}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -33,6 +35,9 @@ Recent technologies such as adaptive optics have improved our ability to compens
 \section{Introduction}
 
 \section{Theory}
+
+\subsection{Hermitian ``Transfer Matrix"}
+If we take the transfer matrix, $\T$, and multiply by the complex conjugate, $\T^*$, we obtain a Hermitian matrix, $\T_H$. By finding the eigenvalues of this matrix, instead of those of $\T$, we obtain a different set of modes that are guaranteed to be orthogonal to one another. These modes are not exactly eigenmodes of the channel however. They propagate through the channel and are distinguishable from one another at all times.  
 
 \section{Simulations}
 
