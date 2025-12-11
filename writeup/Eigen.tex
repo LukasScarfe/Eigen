@@ -2,6 +2,7 @@
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\usepackage{graphicx}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \newcommand{\abs}[1]{\left| #1 \right|}
@@ -33,7 +34,34 @@ Recent technologies such as adaptive optics have improved our ability to compens
 
 \section{Theory}
 
-\section{Simulation}
+\section{Simulations}
+
+\begin{figure}
+    \centering
+    \includegraphics[width=\textwidth]{figures/96/96_0Turb_Eigen.png}
+    \caption{Eigenmodes of free-space propagation with a resolution of $96\times96$ pixels}
+    \label{fig:96_0Turb-Eigen}
+\end{figure}
+
+
+Using a larger simulation window, but reducing the aperature that is actually being used allows for simulations where the boundary conditions are not causing strange errors.
+
+
+\begin{table}
+    \centering
+    \begin{tabular}{|c|c|c|}
+        \hline
+        Number of Pixels & Time to Calculate Eigenvalues & Quality \\ \hline
+        32               & 00:00.70                      & Bad     \\ \hline
+        48               & 00:04.10                      & Okay    \\ \hline
+        64               & 00:17.60                      & Good    \\ \hline
+        96               & 02:55:00                      & Good    \\ \hline
+        128              &                               & Good    \\ \hline
+    \end{tabular}
+    \caption{Table of the times it takes to calculate the eigenvalues.}
+    \label{T:eigenCalcTime}
+\end{table}
+
 
 \section{Experiment}
 
