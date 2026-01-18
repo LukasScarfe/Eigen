@@ -1,6 +1,8 @@
 images/
 figs/
 vids/
+__pycache__/
+*.pyc
 writeup/Eigen.synctex.gz
 
 Eigen.code-workspace
