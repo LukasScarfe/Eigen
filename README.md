@@ -17,4 +17,5 @@ This is a project for Lukas Scarfe and Daniel Deiros to generate and investigate
     1. Maybe just go to a big fixed phase screen, don't spend more than 2 hours.
 
 2. Save images of a gausian beam propagated through the channel, final output state while moving the turbulence screens. save the images in /images/subdirectory.
-    1. End goal is to to watch a single Eigenmode evolve of the timestep. 
+    1. Also make videos of different OAM beams, HG modes propagating.
+    2. End goal is to to watch a single Eigenmode evolve of the timestep.
