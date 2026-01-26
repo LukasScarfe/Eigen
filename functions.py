@@ -101,6 +101,10 @@ def Fqubit(F,w0,d=3,j=0,k=1,m=0):
     Q=BeamMix(OAM(F,w0,l[j],0),OAM(F,w0,l[k],p))
     return Q
 
+# Keeping phase values between -pi and pi
+def wrap_to_pi(angle):
+    return (angle + np.pi) % (2 *np.pi) - np.pi
+
 ### GENERATING BEAM PLOTS
 
 #Show a plot of a single beam, or an array of beams with phase and intensity
@@ -282,7 +286,11 @@ def propChannel(F,distance,abbs=1,mode=0):
     else:
         F=Fresnel(F,distance/(len(abbs)+1))
         for screen in abbs:
-            F=SubPhase(F,Phase(F)+screen)
+            if not isinstance(screen, np.ndarray):
+                screen_real = screen.scrn.copy() # needed for infinite phase screens
+            else: 
+                screen_real = screen
+            F=SubPhase(F,Phase(F)+screen_real)
             if mode==1:
                 F=Forvard(F,distance/(len(abbs)+1))
             elif mode == 2:

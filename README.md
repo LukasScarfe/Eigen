@@ -13,9 +13,9 @@ This is a project for Lukas Scarfe and Daniel Deiros to generate and investigate
 
 ## 21-01-26
 
-1. PhaseScreenKolmogorov.add_row(inf_ps) ends up just adding 0 phase eventually and the whole phase screen is red. We want to be able to extend them infinitely.
-    1. Maybe just go to a big fixed phase screen, don't spend more than 2 hours.
+1. ~~PhaseScreenKolmogorov.add_row(inf_ps) ends up just adding 0 phase eventually and the whole phase screen is red. We want to be able to extend them infinitely.~~ **Ok kinda figured stuff out. i was plotting them wrong basically. i think this method is ok but maybe messed up when you add a lot of rows like 10*N. Von Karman seems to be better when adding a lot of rows. Yeah I think we should definitely use Von Karman going forward**
+    1. ~~Maybe just go to a big fixed phase screen, don't spend more than 2 hours.~~
 
-2. Save images of a gausian beam propagated through the channel, final output state while moving the turbulence screens. save the images in /images/subdirectory.
+2. ~~Save images of a gaussian beam propagated through the channel, final output state while moving the turbulence screens. save the images in /images/subdirectory.~~
     1. Also make videos of different OAM beams, HG modes propagating.
     2. End goal is to to watch a single Eigenmode evolve of the timestep.
