@@ -9,7 +9,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors
 import colorcet as cc
 import pylab as pl
-import os
+import os, subprocess
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from tqdm import tqdm as progress
 
@@ -105,11 +105,8 @@ def Fqubit(F,w0,d=3,j=0,k=1,m=0):
 def wrap_to_pi(angle):
     return (angle + np.pi) % (2 *np.pi) - np.pi
 
-### GENERATING BEAM PLOTS
-
 #Show a plot of a single beam, or an array of beams with phase and intensity
 def plotBeam(Fs: list[Field],rows: int=1,aperature: float=0,intensity: bool=True,phase: bool=True,dpi: int=300) -> plt.Figure:
-    
     """
     Show a plot of a single beam, or an array of beams with phase and intensity. This plot can be saved as an image. using the filename argument.
 
@@ -209,6 +206,40 @@ def plotBeamTransparent(Fs, rows=1, intensity=True, phase=True, dpi=300):
         ax.imshow(rgba, interpolation='nearest', aspect='auto')
 
     return fig
+
+
+def create_transparent_webm(image_folder, output_name="beam_movie.webm", fps=120):
+    # Ensure filenames are sorted (e.g., output0.png, output1.png...)
+    # We use a text file list for FFmpeg to handle non-sequential naming
+    input_list = "images.txt"
+    filenames = sorted([f for f in os.listdir(image_folder) if f.endswith('.png')])
+    
+    with open(input_list, "w") as f:
+        for fname in filenames:
+            f.write(f"file '{os.path.join(image_folder, fname)}'\n")
+
+    # FFmpeg command for VP9 WebM with Alpha:
+    # -f concat: use the text file list
+    # -pix_fmt yuva420p: The 'a' stands for Alpha (transparency support)
+    # -auto-alt-ref 0: Required for transparency in some VP9 versions
+    cmd = [
+        'ffmpeg', '-y', 
+        '-r', str(fps), 
+        '-f', 'concat', '-safe', '0', '-i', input_list,
+        '-c:v', 'libvpx-vp9', 
+        '-pix_fmt', 'yuva420p', 
+        '-auto-alt-ref', '0', 
+        output_name
+    ]
+
+    try:
+        subprocess.run(cmd, check=True)
+        print(f"Successfully saved transparent video: {output_name}")
+    except subprocess.CalledProcessError as e:
+        print(f"Error running FFmpeg: {e}")
+    finally:
+        if os.path.exists(input_list):
+            os.remove(input_list)
 
 ### Overlap integrals and crosstalk
 
@@ -388,3 +419,29 @@ def parallelpropagatePixels(FieldIn, N, z,lensSize, abbs):
                 
     return FieldsOut,np.array(endFields_data)
 
+
+def extend_phase_screen(screen, direction="down", num_steps=1):
+
+    def add_row_down(screen, num_steps=1):
+        return 1
+
+    def add_row_left(screen, num_steps=1):
+        return 2
+    
+    def add_row_up(screen, num_steps=1):
+        return 3
+    
+    def add_row_right(screen, num_steps=1):
+        return 4
+
+    if direction == "down" or 0:
+        return add_row_down(screen, num_steps=1)
+    
+    if direction == "left" or 1:
+        return add_row_left(screen, num_steps=1)
+    
+    if direction == "up" or 2:
+        return add_row_up(screen, num_steps=1)
+    
+    if direction == "right" or 3:
+        return add_row_right(screen, num_steps=1)
