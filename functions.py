@@ -329,9 +329,7 @@ def propagateSinglePixel(FieldIn: Field,j: int, i:int, N:int, z:float, lensSize:
 
     Returns:
         tuple: (FieldOut, endField_data) for the specific (j, i)
-    """
-
-    print('Worker started')    
+    """   
     
     # 1. Create the intensity matrix
     intens = np.zeros((N, N))
