@@ -162,8 +162,11 @@ def create__web_movie(image_folder: str, output_location: str, fps: int=60) -> N
         '-r', str(fps), 
         '-f', 'concat', '-safe', '0', '-i', input_list,
         '-c:v', 'libvpx-vp9', 
+        '-crf', '15',          # Quality level (0–63). Lower is better quality.
+        '-b:v', '0',           # Required when using -crf for VP9
         '-pix_fmt', 'yuva420p', 
         '-auto-alt-ref', '0', 
+        '-deadline', 'good',   # Balance between encode speed and quality
         output_location
     ]
 

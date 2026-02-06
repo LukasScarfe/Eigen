@@ -157,18 +157,18 @@ def extend_phase_screen(screen, direction="down", num_steps=1):
         screen.scrn[:] = np.rot90(screen.scrn[:], k=1)
         return None
 
-    if direction == "down" or direction == 0:
+    if direction == "down" or direction%4 == 0:
         add_row_down(screen, num_steps)
         return None
     
-    if direction == "left" or direction == 1:
+    if direction == "left" or direction%4 == 1:
         add_row_left(screen, num_steps)
         return None
     
-    if direction == "up" or direction == 2:
+    if direction == "up" or direction%4 == 2:
         add_row_up(screen, num_steps)
         return None
     
-    if direction == "right" or direction == 3:
+    if direction == "right" or direction%4 == 3:
         add_row_right(screen, num_steps)
         return None
