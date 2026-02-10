@@ -23,6 +23,6 @@ Must have ffmpeg to make videos.
 
 
 ## 2026-01-26
-1. Create extend_phase_screen function with directions.
-2. run it with 4 phase screens going in 4 directions, start small for the video because it takes time to make the phase screens. 
+1. ~~Create extend_phase_screen function with directions.~~
+2. ~~run it with 4 phase screens going in 4 directions, start small for the video because it takes time to make the phase screens.~~
 3. Try the videomaking (download ffmpeg) 
