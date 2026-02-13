@@ -29,7 +29,7 @@ def eigen_vals_vecs(end_fields):
     eigVals = eigVals[sort_indices]
     eigVecs = eigVecs[:, sort_indices]
 
-    return eigVals, eigVecs
+    return eigVals, eigVecs, eigMags
 
 # Find eigenmodes
 def eigenmodes(size, wavelength, N, z, eigVecs, abbs):
