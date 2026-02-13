@@ -9,8 +9,6 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from tqdm import tqdm as progress
 
-from aotools.turbulence.infinitephasescreen import PhaseScreenVonKarman
-
 ### Propagation
 #Propagates one beam through the channel defined by the distance and the list of abberations that is input (abbs)
 #If there are abberations, distance is the distance per abberation
@@ -128,47 +126,3 @@ def parallelpropagatePixels(FieldIn, N, z,lensSize, abbs):
                 print(f'\n(j={j}, i={i}) generated an exception: {exc}')
                 
     return FieldsOut,np.array(endFields_data)
-
-def extend_phase_screen(screen, direction="down", num_steps=1):
-
-    def add_row_down(screen, num_steps):
-        for _ in range(num_steps):
-            PhaseScreenVonKarman.add_row(screen)
-        return None
-
-    def add_row_left(screen, num_steps=1):
-        screen.scrn[:] = np.rot90(screen.scrn[:], k=1)
-        for _ in range(num_steps):
-            PhaseScreenVonKarman.add_row(screen)
-        screen.scrn[:] = np.rot90(screen.scrn[:], k=-1)
-        return None
-    
-    def add_row_up(screen, num_steps=1):
-        screen.scrn[:] = np.flipud(screen.scrn) # Flip matrix vertically
-        for _ in range(num_steps):
-            PhaseScreenVonKarman.add_row(screen) # Add rows
-        screen.scrn[:] = np.flipud(screen.scrn) # Flip matrix vertically again
-        return None
-    
-    def add_row_right(screen, num_steps=1):
-        screen.scrn[:] = np.rot90(screen.scrn[:], k=-1)
-        for _ in range(num_steps):
-            PhaseScreenVonKarman.add_row(screen)
-        screen.scrn[:] = np.rot90(screen.scrn[:], k=1)
-        return None
-
-    if direction == "down" or direction%4 == 0:
-        add_row_down(screen, num_steps)
-        return None
-    
-    if direction == "left" or direction%4 == 1:
-        add_row_left(screen, num_steps)
-        return None
-    
-    if direction == "up" or direction%4 == 2:
-        add_row_up(screen, num_steps)
-        return None
-    
-    if direction == "right" or direction%4 == 3:
-        add_row_right(screen, num_steps)
-        return None
