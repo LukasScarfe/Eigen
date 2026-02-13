@@ -36,7 +36,7 @@ def eigenmodes(size, wavelength, N, z, eigVecs, abbs):
     #Making Eigenvector optical modes
     F=Begin(size,wavelength,N)
     eigenBeams=[]
-    for i in progress(range(100)):
+    for i in progress(range(100) if len(eigVecs)>100 else range(N**2)):
         mode=eigVecs[:,i]
         eigenInt=[abs(val)**2 for val in mode]
         eigenInt=np.pad(np.array(eigenInt).reshape((N,N)),pad_width=int(0), mode='constant', constant_values=0)
