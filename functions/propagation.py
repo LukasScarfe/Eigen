@@ -1,13 +1,15 @@
 import os
 
 from LightPipes import Field
-from LightPipes import Forvard, Forward, Fresnel, Phase, SubPhase, CircAperture, SubIntensity
+from LightPipes import Forvard, Forward, Fresnel, Phase, SubPhase, CircAperture, SubIntensity, Begin
 
 import numpy as np
 
 from concurrent.futures import ProcessPoolExecutor, as_completed
 
 from tqdm import tqdm as progress
+
+import aotools
 
 ### Propagation
 #Propagates one beam through the channel defined by the distance and the list of abberations that is input (abbs)
@@ -86,8 +88,11 @@ def propagateSinglePixel(FieldIn: Field,j: int, i:int, N:int, z:float, lensSize:
 
     return FieldOut,endField_data
 
-def parallelpropagatePixels(FieldIn, N, z,lensSize, abbs):
+def parallelpropagatePixels(size, wavelength, N, z,lensSize, abbs):
         
+    # Define field to be changing the intensity of
+    FieldIn=Begin(size,wavelength,N)
+    
     # Initialize the results lists
     FieldsOut = []
     endFields_data = []
