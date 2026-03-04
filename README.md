@@ -28,4 +28,4 @@ Must have ffmpeg to make videos.
 3. ~~Try the videomaking (download ffmpeg) ~~
 
 ## 2026-03-04
-1. Fix propagate single pixel and ensure that when we extract the output we know which j and i it corresponds to. I believe the outputs are being extracted and appended to FieldOut out of order!
+1. ~~Fix propagate single pixel and ensure that when we extract the output we know which j and i it corresponds to. I believe the outputs are being extracted and appended to FieldOut out of order!~~

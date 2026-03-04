@@ -86,7 +86,7 @@ def propagateSinglePixel(FieldIn: Field,j: int, i:int, N:int, z:float, lensSize:
     # 4. Extract data
     endField_data = np.array(FieldOut.field).reshape(N**2)
 
-    return FieldOut,endField_data
+    return FieldOut,endField_data, j, i
 
 def parallelpropagatePixels(size, wavelength, N, z,lensSize, abbs):
         
@@ -94,8 +94,10 @@ def parallelpropagatePixels(size, wavelength, N, z,lensSize, abbs):
     FieldIn=Begin(size,wavelength,N)
     
     # Initialize the results lists
-    FieldsOut = []
-    endFields_data = []
+    FieldsOut = [[[] for _ in range(N)] for _ in range(N)] 
+    # FieldsOut = []
+    endFields_data = [[] for _ in range(N**2)]
+    # endFields_data = []
     
     max_workers = os.cpu_count()-2 or 4
     print(f"Using {max_workers} threads to propagate beams simulataneously...")
@@ -119,11 +121,13 @@ def parallelpropagatePixels(size, wavelength, N, z,lensSize, abbs):
         for future in results_iterator:
             try:
                 # Get the result from the completed task
-                FieldOut,endField_data = future.result()
+                FieldOut,endField_data, j, i = future.result()
                 
                 # Append the results to the main lists
-                FieldsOut.append(FieldOut)
-                endFields_data.append(endField_data)
+                FieldsOut[j][i]=FieldOut
+                # FieldsOut.append(FieldOut)
+                endFields_data[j*N+i]=endField_data
+                # endFields_data.append(endField_data)
                 
             except Exception as exc:
                 # Print any exceptions that occurred inside the worker function
