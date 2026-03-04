@@ -25,4 +25,7 @@ Must have ffmpeg to make videos.
 ## 2026-01-26
 1. ~~Create extend_phase_screen function with directions.~~
 2. ~~run it with 4 phase screens going in 4 directions, start small for the video because it takes time to make the phase screens.~~
-3. Try the videomaking (download ffmpeg) 
+3. ~~Try the videomaking (download ffmpeg) ~~
+
+## 2026-03-04
+1. Fix propagate single pixel and ensure that when we extract the output we know which j and i it corresponds to. I believe the outputs are being extracted and appended to FieldOut out of order!

@@ -105,7 +105,7 @@ def parallelpropagatePixels(size, wavelength, N, z,lensSize, abbs):
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         future_to_task = {
             # Pass the raw data/args, NOT the complex FieldIn object
-            executor.submit(propagateSinglePixel, FieldIn, j, i, N, z,lensSize, abbs): (j, i) 
+            executor.submit(propagateSinglePixel, FieldIn, j, i, N, z, lensSize, abbs): (j, i) 
             for j, i in tasks
         }
         
