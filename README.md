@@ -29,3 +29,6 @@ Must have ffmpeg to make videos.
 
 ## 2026-03-04
 1. ~~Fix propagate single pixel and ensure that when we extract the output we know which j and i it corresponds to. I believe the outputs are being extracted and appended to FieldOut out of order!~~
+
+## 2026-03-10
+1. ~~Revise Fried parameter stuff. Really interesting behaviour when we increase the number of phase screens where the phase screens individually become less strong and then we get eigenmodes for super low turbulence. But the way we have it coded is that when considering the phase screens together they should act as the turbulence with the C_n^2 parameter. idk. then when going from midweak turb to mid turb the phase screens gain phase variance very quickly.
