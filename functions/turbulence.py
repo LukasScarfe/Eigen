@@ -25,7 +25,7 @@ def extract_screens(abbs):
     return [phasescreen.scrn for phasescreen in abbs]
 
 def fried(wavelength, C2_n, z, num_phase_screens):
-    return pow(0.423*pow(2*np.pi/wavelength,2)*3*C2_n*z/num_phase_screens,-3/5) # revise this
+    return pow(0.423*pow(2*np.pi/wavelength,2)*C2_n*z/num_phase_screens,-3/5) # revise this # removed a random factor of 3
 
 def extend_phase_screen(screen, direction="down", num_steps=1):
 
