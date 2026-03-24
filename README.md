@@ -35,3 +35,18 @@ Must have ffmpeg to make videos.
 
 ## 2026-03-19
 1. ~~Looking to implement the sigma^2 parameter (Rytov parameter) from Aaron's paper (in the supplementary material). Still need to revise Fried parameter stuff but it might be fine. Can use their paper too.~~
+
+## 2026-03-23
+1. For dataset stuff:
+    * ~10 steps with ~4 phase screens (moving in different directions)
+    * Can do this with like ~96x96 resolution
+    * Things to save:
+        * CSV of the complex output mode (i.e. the field. the eigenmode. raw pixel values)
+        * Propagate a gaussian through the channel. Save the complex output field of this as well.
+        * Desired output of the NN --> a CSV of the output field
+        * Possible inputs:
+            * First just try to propagate a gaussian. Give it gaussian output.
+            * Eigenmode output from a previous time step.\
+2. Remember to add total Rytov parameter as well.
+3. For Daniel: Set up a py file to save these type of stuff (e.g. Gaussian output, separate the real and imaginary (necessary for NN), take the first first four eigenmodes (i.e. the ones with the highest eigenvalue), pad the filename it with a few zeros to go up to like 10000, save the parameters somewhere (txt file or something)). Take 10 steps.
+4. Something to add: block printing stuff between timesteps...

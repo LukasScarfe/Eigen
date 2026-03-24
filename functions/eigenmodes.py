@@ -18,7 +18,9 @@ def eigen_vals_vecs(end_fields):
     # transferMatrixH=end_fields.T.conj()
     # transferMatrixHermitian=transferMatrixH@transferMatrix
 
+    print("Determining eigenvalues and eigenvectors...")
     eigVals,eigVecs=np.linalg.eig(transferMatrixT)
+    print("Done.")
 
     #Get the absolute values and phases of the eigenvalues
     eigMags=abs(eigVals)

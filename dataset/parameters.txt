@@ -1,0 +1,13 @@
+Window size: 0.45 m
+Resolution (NxN): 64
+Lens radius: 0.1125 m
+Wavelength: 6.33e-07 m
+Beam radius: 0.09375 m
+Total propagation distance: 5000.0 m
+Number of phase screens: 4
+C^2_n: 1e-15
+Pixels shifted per time step: 1
+Phase screen seed: 47
+Total Rytov parameter: 1.0820706998932237
+Partial Rytov parameter: 0.08520772826687192
+Total timesteps: 10

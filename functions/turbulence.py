@@ -7,7 +7,8 @@ from aotools.turbulence.infinitephasescreen import PhaseScreenVonKarman
 def gen_turb_channel(size, N, wavelength, z, C2_n, num_phase_screens, phase_screen_seed, shift, abbs=[]):
     # First find r0
     r0 = fried(wavelength, C2_n, z, num_phase_screens)
-
+    print(f"Fried parameter for each phase screen: {r0:.4f}")
+    
     # Define outer scale
     L0 = N/2 * size / N * 50 # outer scale
 
