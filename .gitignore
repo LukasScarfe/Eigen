@@ -5,5 +5,7 @@ __pycache__/
 *.pyc
 writeup/Eigen.synctex.gz
 
+/dataset
+
 Eigen.code-workspace
 .vscode/
