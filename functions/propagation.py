@@ -100,7 +100,7 @@ def parallelpropagatePixels(size, wavelength, N, z,lensSize, abbs):
     # endFields_data = []
     
     max_workers = os.cpu_count()-2 or 4
-    print(f"Using {max_workers} threads to propagate beams simulataneously...")
+    # print(f"Using {max_workers} threads to propagate beams simulataneously...")
 
     tasks = [(j, i) for j in range(N) for i in range(N)]
     ...
@@ -115,7 +115,8 @@ def parallelpropagatePixels(size, wavelength, N, z,lensSize, abbs):
         results_iterator = progress(
             as_completed(future_to_task), 
             total=len(tasks), 
-            desc="Propagating invidual Pixels"
+            desc="Propagating invidual Pixels",
+            disable=True # disable printing
         )
         
         for future in results_iterator:
