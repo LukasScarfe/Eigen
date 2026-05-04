@@ -6,6 +6,7 @@ __pycache__/
 writeup/Eigen.synctex.gz
 
 /dataset
+fresnel_dataset/
 
 Eigen.code-workspace
 .vscode/
