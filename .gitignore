@@ -8,6 +8,7 @@ writeup/Eigen.synctex.gz
 /dataset
 fresnel_dataset/
 fresnel_example.ipynb
+pytorch_test.ipynb
 
 Eigen.code-workspace
 .vscode/
