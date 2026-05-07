@@ -7,6 +7,8 @@ writeup/Eigen.synctex.gz
 
 /dataset
 fresnel_dataset/
+training_plots/
+trained_models/
 fresnel_example.ipynb
 pytorch_test.ipynb
 
@@ -22,3 +24,4 @@ data/FashionMNIST/raw/train-labels-idx1-ubyte
 data/FashionMNIST/raw/train-labels-idx1-ubyte.gz
 model.pth
 .venv
+

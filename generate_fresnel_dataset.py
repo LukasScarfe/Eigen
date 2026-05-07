@@ -23,7 +23,7 @@ um = 1e-6
 mm = 1e-3
 cm = 1e-2
 
-RESOLUTION = 128           # Grid points per dimension (N × N)
+RESOLUTION = 64          # Grid points per dimension (N × N)
 
 # Fixed optical parameters
 
@@ -37,7 +37,7 @@ ZR =  0.50*K*W0**2
 #  CONFIG  —  edit these before running
 # ─────────────────────────────────────────────
 
-N_SAMPLES       = 1000          # Number of input-output pairs to generate
+N_SAMPLES       = 2000          # Number of input-output pairs to generate
 Z_MIN           = -2.5*ZR          # Minimum propagation distance (m)  — 1 cm
 Z_MAX           = 2.5*ZR        # Maximum propagation distance (m)  — 50 cm
 SEED            = 42            # Random seed for reproducibility
@@ -134,6 +134,11 @@ def generate_dataset(n_samples, resolution, z_min, z_max, seed, output_dir):
 
     # Pre-generate the source Gaussian field (same for every sample)
     source_field = LG(r, phi, ell=0, p=0, w0=W0, h=h, z=0, k=k)
+
+    # Normalise so that the maximum absolute value is 1.
+    # Because propTF is linear, the same factor scales every propagated field.
+    norm_factor  = np.max(np.abs(source_field))
+    source_field = source_field / norm_factor
 
     # Draw propagation distances from a uniform distribution
     prop_distances = rng.uniform(z_min, z_max, size=n_samples)
