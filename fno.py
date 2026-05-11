@@ -76,10 +76,13 @@ class FNO2d(nn.Module):
         self.n_layers = fno_architecture["n_layers"]
         self.retrain_fno = fno_architecture["retrain_fno"]
 
+        input_chans = fno_architecture["input_chans"]
+        output_chans = fno_architecture["output_chans"]
+
         torch.manual_seed(self.retrain_fno)
         # self.padding = 9 # pad the domain if input is non-periodic
         self.padding_frac = padding_frac
-        self.fc0 = nn.Linear(3, self.width)  # input channel is 3: (z, Re(field), Im(field))
+        self.fc0 = nn.Linear(input_chans, self.width) # be careful of the number of input channels your problem requires
 
         self.conv_list = nn.ModuleList(
             [nn.Conv2d(self.width, self.width, 1) for _ in range(self.n_layers)])
@@ -87,7 +90,7 @@ class FNO2d(nn.Module):
             [SpectralConv2d(self.width, self.width, self.modes1, self.modes2) for _ in range(self.n_layers)])
 
         self.fc1 = nn.Linear(self.width, 128)
-        self.fc2 = nn.Linear(128, 2)  # 2 output channels: Re and Im of propagated field
+        self.fc2 = nn.Linear(128, output_chans)  # be careful of the number of output channels your problem requires
 
         self.to(device)
 
