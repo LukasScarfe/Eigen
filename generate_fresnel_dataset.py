@@ -37,14 +37,14 @@ ZR =  0.50*K*W0**2
 #  CONFIG  —  edit these before running
 # ─────────────────────────────────────────────
 
-N_SAMPLES       = 2000          # Number of input-output pairs to generate
-Z_MIN           = -2.5*ZR          # Minimum propagation distance (m)  — 1 cm
-Z_MAX           = 2.5*ZR        # Maximum propagation distance (m)  — 50 cm
-SEED            = 42            # Random seed for reproducibility
-OUTPUT_DIR      = os.path.join(os.path.dirname(__file__), "fresnel_dataset")
+N_SAMPLES           = 2000          # Number of input-output pairs to generate
+Z_MIN               = -2.5*ZR       # Minimum propagation distance (m)
+Z_MAX               = 2.5*ZR        # Maximum propagation distance (m)
+SEED                = 42            # Random seed for reproducibility
+OUTPUT_DIR          = os.path.join(os.path.dirname(__file__), "fresnel_dataset")
+LOWPASS_CUTOFF_FRAC = 1.00      # Fraction of Nyquist to keep in output (0.25 = lowest quarter)
 
 # ─────────────────────────────────────────────
-
 
 # ─────────────────────────────────────────────
 #  Helper functions
@@ -119,6 +119,40 @@ def propTF(u1, L, la, z):
     return u2
 
 
+def lowpass_filter(field, cutoff_frac=0.25):
+    """
+    Apply a hard lowpass filter to a 2-D complex field.
+
+    Only the lowest `cutoff_frac` fraction of spatial frequencies
+    (measured as a fraction of Nyquist in each dimension) are kept;
+    all higher-frequency components are zeroed out.
+
+    Parameters
+    ----------
+    field       : (N, N) complex array — field to filter
+    cutoff_frac : float                — fraction of Nyquist to keep (default 0.25)
+
+    Returns
+    -------
+    filtered : (N, N) complex array
+    """
+    N = field.shape[0]
+    # FFT and shift DC to centre
+    F = fftshift(fft2(field))
+
+    # Build a circular mask: keep frequencies within cutoff_frac * Nyquist
+    fy = np.fft.fftfreq(N)          # normalised frequencies in [-0.5, 0.5)
+    fx = np.fft.fftfreq(N)
+    FX, FY = np.meshgrid(fx, fy)
+    k = np.sqrt(FX**2 + FY**2)
+    mask = (k <= cutoff_frac * 0.5).astype(complex)   # Nyquist = 0.5
+    mask = fftshift(mask)
+
+    # Apply mask and invert
+    filtered = ifft2(ifftshift(F * mask))
+    return filtered
+
+
 # ─────────────────────────────────────────────
 #  Dataset generation
 # ─────────────────────────────────────────────
@@ -152,6 +186,9 @@ def generate_dataset(n_samples, resolution, z_min, z_max, seed, output_dir):
     print(f"Generating {n_samples} samples at {resolution}×{resolution} resolution …")
     for i, z in enumerate(prop_distances):
         prop_field = propTF(source_field, maxx, LAMBDA, z)
+
+        # Apply lowpass filter to keep only the lowest-frequency components
+        prop_field = lowpass_filter(prop_field, cutoff_frac=LOWPASS_CUTOFF_FRAC)
 
         # Channel 0: propagation distance (broadcast as a constant plane)
         inputs[i, 0, :, :] = np.float32(z)
@@ -194,16 +231,19 @@ def generate_dataset(n_samples, resolution, z_min, z_max, seed, output_dir):
         f.write(f"  outputs         : {outputs.shape}  (n, 2, N, N)\n")
         f.write(f"    ch 0          : Re(propagated field)\n")
         f.write(f"    ch 1          : Im(propagated field)\n")
+        f.write(f"  lowpass cutoff  : {LOWPASS_CUTOFF_FRAC} (fraction of Nyquist kept)\n")
         f.write(f"  prop_distances  : {prop_distances.shape}\n")
 
     print(f"\nDataset saved to: {output_dir}")
     print(f"  inputs.npy         {inputs.nbytes  / 1e6:.1f} MB")
     print(f"  outputs.npy        {outputs.nbytes / 1e6:.1f} MB")
     print(f"  prop_distances.npy {prop_distances.nbytes / 1e3:.1f} kB")
+    print(f"  fraction of Nyquist kept: {LOWPASS_CUTOFF_FRAC}")
     print(f"  metadata.txt")
 
 
 if __name__ == "__main__":
+
     generate_dataset(
         n_samples  = N_SAMPLES,
         resolution = RESOLUTION,
