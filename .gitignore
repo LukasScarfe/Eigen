@@ -9,6 +9,7 @@ writeup/Eigen.synctex.gz
 fresnel_dataset/
 training_plots/
 trained_models/
+trained_models_eigen/
 fresnel_example.ipynb
 pytorch_test.ipynb
 
