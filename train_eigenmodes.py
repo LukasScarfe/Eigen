@@ -23,49 +23,60 @@ from fno import FNO2d, spectral_relative_l2, make_freq_weights
 import yaml
 from yaml import Loader
 
-
+import argparse
 
 # Select configuration file according to parse index
 
+parser=argparse.ArgumentParser(description='test')
+parser.add_argument('--ii', dest='ii', type=int,
+    default=None, help='')
+args = parser.parse_args()
+shift = args.ii
+
+# OMIT IF YOU ARE USING THIS IN A CLUSTER
+
+shift = 0
+
+# These parameters we can safely leave fixed/hard-coded
+
+N_EIGENMODES = 4
+INPUT_CHANS  = 4
+OUTPUT_CHANS = 2
+RETRAIN_FNO  = np.random.randint(1, 9999)
 
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
 
-
-
 # Load yaml file
 
-with open(f'train{ii}.yaml', 'r') as file:
-    config = yaml.load(file, Loader=Loader)
+with open(f'configs/train{shift}.yaml', 'r') as file:
+    cnfg = yaml.load(file, Loader=Loader)
 
+training_dataset = cnfg["training_dataset"]
 
+# Training parameters
 
+train_test_split = cnfg["train_test_split"] # train/test split
+batch_size = cnfg["batch_size"] # batch training size
+learn_rate = float(cnfg["learn_rate"]) # Initial learning rate 
+step_size = cnfg["step_size"] # Epochs to decay the learning rate
+gamma = cnfg["gamma"] # LR Decay Factor
+epochs = cnfg["epochs"] # Number of training epochs 
+stop_criterion_epochs = cnfg["stop_criterion_epochs"] # Number of epochs without improvement before stopping
+min_delta             = cnfg.get("min_delta", 1e-4)   # Minimum improvement in validation loss to count as progress
 
-
-DATASET_DIR  = "dataset"
-N_SAMPLES    = 1000
-N_EIGENMODES = 4
-
-n_train    = 3600
-batch_size = 10
-
-# Training hyper-parameters
-epochs     = 50
-learn_rate = 0.001   # initial learning rate
-step_size  = 12      # LR decay period (epochs)
-gamma      = 0.5     # LR decay factor
+DATASET_DIR  = f"datasets\{training_dataset}" # training dataset
+print(type(learn_rate))
 
 # FNO architecture
-modes1       = 36    # spectral modes along dimension 1
-modes2       = 36    # spectral modes along dimension 2
-width        = 64    # channel width inside the FNO
-n_layers     = 1     # number of Fourier layers
-retrain_fno  = 42    # random seed for weight initialisation
-input_chans  = 4
-output_chans = 2
 
-use_mse_loss = False  # False → spectral relative L2; True → standard MSE
+modes1       = cnfg["modes1"]  # spectral modes along dimension 1
+modes2       = cnfg["modes2"]    # spectral modes along dimension 2
+width        = cnfg["width"]     # channel width inside the FNO
+n_layers     = cnfg["n_layers"]     # number of Fourier layers    
+
+use_mse_loss = cnfg['mse_loss']  # False → spectral relative L2; True → standard MSE
 
 freq_print = 1        # print summary every N epochs
 
@@ -99,7 +110,7 @@ sample_dirs = sorted([
     os.path.join(DATASET_DIR, d)
     for d in os.listdir(DATASET_DIR)
     if os.path.isdir(os.path.join(DATASET_DIR, d))
-])[:N_SAMPLES]
+])
 
 dataset = [load_sample(d) for d in sample_dirs]
 
@@ -200,17 +211,27 @@ def plot_loss_curves(
 # 3. Train / test split and DataLoaders
 # ---------------------------------------------------------------------------
 
+# n_train is determined by the amount of data we were able to load up altogether 
+
+n_total = len(X)
+n_train = int(n_total*train_test_split) # so if train_test_split is 0.90, then 90% of the dataset is used for training, while the rest is used for validation
+
 x_train, x_test = X[:n_train], X[n_train:]
 y_train, y_test = Y[:n_train], Y[n_train:]
 
-N = x_train.shape[2]   # spatial grid size (used for freq_weights)
+N = x_train.shape[2]   # spatial grid size 
 
 training_set = DataLoader(TensorDataset(x_train, y_train), batch_size=batch_size, shuffle=True)
 testing_set  = DataLoader(TensorDataset(x_test,  y_test),  batch_size=batch_size, shuffle=False)
 
-# ---------------------------------------------------------------------------
-# 4. Instantiate the FNO
-# ---------------------------------------------------------------------------
+# Report the train/validation size
+
+print(f" Number of training set batches: {len(training_set)} ")
+print(f" Number of validation set batches: {len(testing_set)} ")
+
+# --------------------------------------------------------------------------- #
+# 4. Instantiate the FNO                                                      #
+# --------------------------------------------------------------------------- #
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(f"Using device: {device} ({torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU'})")
@@ -220,9 +241,9 @@ fno_architecture = {
     "modes2":      modes2,
     "width":       width,
     "n_layers":    n_layers,
-    "retrain_fno": retrain_fno,
-    "input_chans": input_chans,
-    "output_chans":output_chans,
+    "retrain_fno": RETRAIN_FNO,
+    "input_chans": INPUT_CHANS,
+    "output_chans": OUTPUT_CHANS,
 }
 
 model = FNO2d(fno_architecture, device=device)
@@ -244,6 +265,10 @@ n_test_batches  = len(testing_set)
 
 train_mse_history    = []
 test_rel_l2_history  = []
+
+# Early stopping state
+best_val_loss     = float('inf')
+patience_counter  = 0
 
 for epoch in range(epochs):
 
@@ -307,3 +332,19 @@ for epoch in range(epochs):
             f"Train MSE: {train_mse:.6f} | "
             f"Mean Relative L2 Test: {test_relative_l2:.4f}%\n"
         )
+    
+    # Lastly, check the early stopping criterion: if the validation loss has not
+    # improved by at least min_delta for stop_criterion_epochs consecutive epochs, stop.
+
+    if test_relative_l2 < best_val_loss - min_delta:
+        best_val_loss    = test_relative_l2
+        patience_counter = 0
+    else:
+        patience_counter += 1
+        print(f"  [Early stopping] No improvement for {patience_counter}/{stop_criterion_epochs} epoch(s). Best val loss: {best_val_loss:.6f}")
+
+    if patience_counter >= stop_criterion_epochs:
+        print(f"\n The validation loss has not improved for {stop_criterion_epochs} consecutive epochs.")
+        print(f" Activating early stopping at epoch {epoch+1}. Best val loss: {best_val_loss:.6f}\n")
+        break
+
