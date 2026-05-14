@@ -1,0 +1,26 @@
+C2_n:
+  MidTurb: 1.0e-15
+  MidWeakTurb: 1.0e-16
+  MidWeakerTurb: 1.5e-17
+  StrongTurb: 1.0e-14
+  StrongerTurb: 1.0e-13
+  WeakTurb: 1.0e-17
+  WeakerTurb: 1.0e-18
+  WeakestTurb: 1.0e-19
+N: 64
+Rytov_part: 0.08520772826687192
+Rytov_total: 1.0820706998932237
+TurbStrength: MidTurb
+dataset_collect: true
+dataset_folder_name: dataset
+lensSize: 0.1125
+num_of_fluctuations: 3
+num_phase_screens: 4
+phase_screen_seed: 47
+plotting: false
+shift: 1
+size: 0.45
+start_point: 0
+w0: 0.09375
+wavelength: 6.33e-07
+z: 5000.0
