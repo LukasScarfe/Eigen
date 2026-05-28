@@ -86,6 +86,13 @@ cnfg.setdefault("size", 0.45)
 size = cnfg["size"] # simulation window side length (metres)
 lensSize = size/4 # aperture radius (metres) [= size/4]
 
+cnfg.setdefault("model_checkpoint_dir", "trained_model_eigens")
+model_checkpoint_dir = cnfg["model_checkpoint_dir"]
+os.makedirs(f"models\{model_checkpoint_dir}", exist_ok=True)
+
+# Create model directory (if it doesn't already exist)
+
+model_path = os.path.join(f"models\{model_checkpoint_dir}", "fno_eigen.pth")
 
 # ---------------------------------------------------------------------------
 # 1. Load dataset
@@ -383,6 +390,20 @@ for epoch in range(epochs):
     if test_relative_l2 < best_val_loss - min_delta:
         best_val_loss    = test_relative_l2
         patience_counter = 0
+
+        # Save model checkpoint
+
+        torch.save({
+            "model_state_dict": model.state_dict(),
+            "optimizer_state_dict": optim.state_dict(),
+            "fno_architecture": fno_architecture,
+            "epochs": epochs,
+            "train_mse_history": train_mse_history,
+            "test_rel_l2_history": test_rel_l2_history,
+        }, model_path)
+
+        print(f"Model saved to {model_path}")
+
     else:
         patience_counter += 1
         print(f"  [Early stopping] No improvement for {patience_counter}/{stop_criterion_epochs} epoch(s). Best val loss: {best_val_loss:.6f}")

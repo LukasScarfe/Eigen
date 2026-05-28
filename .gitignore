@@ -13,6 +13,7 @@ datasets/
 training_plots/
 trained_models/
 trained_models_eigen/
+models/
 configs/
 fresnel_example.ipynb
 pytorch_test.ipynb

@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 
 from functions.propagation import *
 
-
 # Find eigenvalues and eigenvectors
 def eigen_vals_vecs(end_fields):
     # Define transfer matrix and its transpose
