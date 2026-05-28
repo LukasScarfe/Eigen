@@ -40,7 +40,7 @@ shift = 0
 # These parameters we can safely leave fixed/hard-coded
 
 N_EIGENMODES = 4
-INPUT_CHANS  = 4
+INPUT_CHANS  = 6
 OUTPUT_CHANS = 2
 RETRAIN_FNO  = np.random.randint(1, 9999)
 
@@ -64,7 +64,7 @@ step_size = cnfg["step_size"] # Epochs to decay the learning rate
 gamma = cnfg["gamma"] # LR Decay Factor
 epochs = cnfg["epochs"] # Number of training epochs 
 stop_criterion_epochs = cnfg["stop_criterion_epochs"] # Number of epochs without improvement before stopping
-min_delta             = cnfg.get("min_delta", 1e-4)   # Minimum improvement in validation loss to count as progress
+min_delta = cnfg.get("min_delta", 1e-4)   # Minimum improvement in validation loss to count as progress
 
 DATASET_DIR  = f"datasets\{training_dataset}" # training dataset
 print(type(learn_rate))
@@ -79,6 +79,13 @@ n_layers     = cnfg["n_layers"]     # number of Fourier layers
 use_mse_loss = cnfg['mse_loss']  # False → spectral relative L2; True → standard MSE
 
 freq_print = 1        # print summary every N epochs
+
+# Physical parameters for the circular aperture
+
+cnfg.setdefault("size", 0.45)
+size = cnfg["size"] # simulation window side length (metres)
+lensSize = size/4 # aperture radius (metres) [= size/4]
+
 
 # ---------------------------------------------------------------------------
 # 1. Load dataset
@@ -123,13 +130,14 @@ print(f"Loaded {len(dataset)} samples")
 def prepare_pairs(dataset: list, n_eigenmodes: int = N_EIGENMODES):
     """
     For each consecutive pair of timesteps (t, t+1) and each eigenmode k:
-      Input  : [eigenmode_k_real_t, eigenmode_k_imag_t,
-                gaussian_forward_real_t, gaussian_forward_imag_t]  → (H, W, 4)
-      Target : [eigenmode_k_real_{t+1}, eigenmode_k_imag_{t+1}]   → (H, W, 2)
+      Input  : [eigenmode_k_real_t,        eigenmode_k_imag_t,
+                gaussian_forward_real_t+1,  gaussian_forward_imag_t+1,
+                gaussian_reversed_real_t+1, gaussian_reversed_imag_t+1]  → (H, W, 6)
+      Target : [eigenmode_k_real_{t+1}, eigenmode_k_imag_{t+1}]          → (H, W, 2)
 
     Returns
     -------
-    X : torch.Tensor  shape ((N-1)*n_eigenmodes, H, W, 4)
+    X : torch.Tensor  shape ((N-1)*n_eigenmodes, H, W, 6)
     Y : torch.Tensor  shape ((N-1)*n_eigenmodes, H, W, 2)
     """
     X_list, Y_list = [], []
@@ -142,9 +150,11 @@ def prepare_pairs(dataset: list, n_eigenmodes: int = N_EIGENMODES):
             x = np.stack([
                 curr[f"eigenmode_{k}_real"],
                 curr[f"eigenmode_{k}_imag"],
-                curr["gaussian_forward_real"],
-                curr["gaussian_forward_imag"],
-            ], axis=-1).astype(np.float32)   # (H, W, 4)
+                nxt["gaussian_forward_real"],    # t+1 Gaussian forward
+                nxt["gaussian_forward_imag"],    # t+1 Gaussian forward
+                nxt["gaussian_reversed_real"],   # t+1 Gaussian reversed
+                nxt["gaussian_reversed_imag"],   # t+1 Gaussian reversed
+            ], axis=-1).astype(np.float32)   # (H, W, 6)
 
             y = np.stack([
                 nxt[f"eigenmode_{k}_real"],
@@ -206,6 +216,40 @@ def plot_loss_curves(
     print(f"Plot saved to {save_path}")
 
     plt.show()
+
+
+# ---------------------------------------------------------------------------
+# Circular aperture helper
+# ---------------------------------------------------------------------------
+
+def torch_circ_aperture(field_batch: torch.Tensor, size: float, lensSize: float) -> torch.Tensor:
+    """
+    Applies a circular aperture to a batch of complex fields represented
+    as real/imaginary channels.
+
+    Parameters
+    ----------
+    field_batch : torch.Tensor  shape (batch, H, W, C)
+                  where C=2 holds [real, imag] channels
+    size        : float — physical side length of the window (metres)
+    lensSize    : float — aperture radius (metres)
+
+    Returns
+    -------
+    torch.Tensor — same shape as field_batch, zeroed outside the aperture
+    """
+    _, H, W, _ = field_batch.shape
+    dev = field_batch.device
+
+    x = torch.linspace(-size / 2, size / 2, W, device=dev)
+    y = torch.linspace(-size / 2, size / 2, H, device=dev)
+    yy, xx = torch.meshgrid(y, x, indexing="ij")   # (H, W)
+
+    mask = (xx**2 + yy**2 <= lensSize**2).float()  # (H, W)
+    mask = mask.unsqueeze(0).unsqueeze(-1)           # (1, H, W, 1)
+
+    return field_batch * mask
+
 
 # ---------------------------------------------------------------------------
 # 3. Train / test split and DataLoaders
@@ -281,7 +325,7 @@ for epoch in range(epochs):
         output_batch = output_batch.to(device)
 
         optim.zero_grad()
-        output_pred_batch = model(input_batch)   # (batch, H, W, 2)
+        output_pred_batch = torch_circ_aperture(model(input_batch), size=size, lensSize=lensSize)   # (batch, H, W, 2)
 
         if use_mse_loss:
             loss_f = mse_loss(output_pred_batch, output_batch)
@@ -305,7 +349,7 @@ for epoch in range(epochs):
         for step, (input_batch, output_batch) in enumerate(testing_set):
             input_batch  = input_batch.to(device)
             output_batch = output_batch.to(device)
-            output_pred_batch = model(input_batch)   # (batch, H, W, 2)
+            output_pred_batch = torch_circ_aperture(model(input_batch), size=size, lensSize=lensSize)   # (batch, H, W, 2)
 
             if use_mse_loss:
                 loss_f = (

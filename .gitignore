@@ -7,6 +7,8 @@ writeup/Eigen.synctex.gz
 
 /dataset
 fresnel_dataset/
+inference_plots/
+__init__.py
 datasets/
 training_plots/
 trained_models/
@@ -14,6 +16,7 @@ trained_models_eigen/
 configs/
 fresnel_example.ipynb
 pytorch_test.ipynb
+testor.ipynb
 
 Eigen.code-workspace
 .vscode/
