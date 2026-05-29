@@ -108,6 +108,14 @@ print(f"  Grid    : {data['gaussian_forward_real'].shape[1:]} (H x W)")
 # 2. Build single-step predictor pairs
 # ---------------------------------------------------------------------------
 
+def normalize_11(arr: np.ndarray) -> np.ndarray:
+    """Min-max normalise arr to the range [-1, +1]."""
+    lo, hi = arr.min(), arr.max()
+    if hi - lo < 1e-12:   # constant array — avoid division by zero
+        return np.zeros_like(arr)
+    return 2.0 * (arr - lo) / (hi - lo) - 1.0
+
+
 def prepare_pairs(data: np.lib.npyio.NpzFile, n_eigenmodes: int = N_EIGENMODES):
     """
     For each consecutive pair of timesteps (t, t+1) and each eigenmode k:
@@ -116,10 +124,14 @@ def prepare_pairs(data: np.lib.npyio.NpzFile, n_eigenmodes: int = N_EIGENMODES):
                 gaussian_reversed_real_t+1, gaussian_reversed_imag_t+1]  → (H, W, 6)
       Target : [eigenmode_k_real_{t+1}, eigenmode_k_imag_{t+1}]          → (H, W, 2)
 
+    Samples are stored in timestep-major order — row = t * n_eigenmodes + (k-1) —
+    so that a simple head/tail train/test slice yields a proper temporal holdout.
+    Gaussian channels are normalised to [-1, +1] before packing.
+
     Parameters
     ----------
-    data : np.lib.npyio.NpzFile
-        Loaded .npz file with arrays of shape (N_samples, H, W) per key.
+    data : np.lib.npyio.NpzFile  (or equivalent dict-like)
+        Arrays of shape (N_samples, H, W) per key.
 
     Returns
     -------
@@ -131,32 +143,40 @@ def prepare_pairs(data: np.lib.npyio.NpzFile, n_eigenmodes: int = N_EIGENMODES):
     N_pairs   = N_samples - 1
     total     = N_pairs * n_eigenmodes
 
-    # Pre-allocate output arrays — no repeated reallocation
+    # Pre-allocate output arrays
     X = np.empty((total, H, W, 6), dtype=np.float32)
     Y = np.empty((total, H, W, 2), dtype=np.float32)
 
-    # Slice Gaussian arrays once — shared across all eigenmodes
-    gfwd_real = data["gaussian_forward_real"][1:].astype(np.float32)   # (N-1, H, W)
-    gfwd_imag = data["gaussian_forward_imag"][1:].astype(np.float32)
-    grev_real = data["gaussian_reversed_real"][1:].astype(np.float32)
-    grev_imag = data["gaussian_reversed_imag"][1:].astype(np.float32)
+    # Load and normalise Gaussian arrays once — shared across all eigenmodes
+    gfwd_real = normalize_11(data["gaussian_forward_real"][1:].astype(np.float32))
+    gfwd_imag = normalize_11(data["gaussian_forward_imag"][1:].astype(np.float32))
+    grev_real = normalize_11(data["gaussian_reversed_real"][1:].astype(np.float32))
+    grev_imag = normalize_11(data["gaussian_reversed_imag"][1:].astype(np.float32))
 
+    # Load all eigenmode arrays up front
+    em = {}
     for k in range(1, n_eigenmodes + 1):
-        print(f"Processing eigenmode {k}/{n_eigenmodes} ...")
-        idx = slice((k - 1) * N_pairs, k * N_pairs)
+        em[k] = (data[f"eigenmode_{k}_real"].astype(np.float32),
+                 data[f"eigenmode_{k}_imag"].astype(np.float32))
 
-        em_real = data[f"eigenmode_{k}_real"].astype(np.float32)   # (N, H, W)
-        em_imag = data[f"eigenmode_{k}_imag"].astype(np.float32)
+    # Fill in timestep-major order: row = t * n_eigenmodes + (k-1)
+    for t in range(N_pairs):
+        for k in range(1, n_eigenmodes + 1):
+            row = t * n_eigenmodes + (k - 1)
+            em_real, em_imag = em[k]
 
-        X[idx, ..., 0] = em_real[:N_pairs]   # eigenmode at t
-        X[idx, ..., 1] = em_imag[:N_pairs]
-        X[idx, ..., 2] = gfwd_real            # Gaussian forward at t+1
-        X[idx, ..., 3] = gfwd_imag
-        X[idx, ..., 4] = grev_real            # Gaussian reversed at t+1
-        X[idx, ..., 5] = grev_imag
+            X[row, ..., 0] = em_real[t]       # eigenmode k at t
+            X[row, ..., 1] = em_imag[t]
+            X[row, ..., 2] = gfwd_real[t]     # Gaussian forward at t+1  (normalised)
+            X[row, ..., 3] = gfwd_imag[t]
+            X[row, ..., 4] = grev_real[t]     # Gaussian reversed at t+1 (normalised)
+            X[row, ..., 5] = grev_imag[t]
 
-        Y[idx, ..., 0] = em_real[1:]          # eigenmode at t+1
-        Y[idx, ..., 1] = em_imag[1:]
+            Y[row, ..., 0] = em_real[t + 1]   # eigenmode k at t+1
+            Y[row, ..., 1] = em_imag[t + 1]
+
+        if (t + 1) % 50 == 0 or (t + 1) == N_pairs:
+            print(f"  Processed {t+1}/{N_pairs} timestep pairs ...")
 
     return torch.from_numpy(X), torch.from_numpy(Y)
 
