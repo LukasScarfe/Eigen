@@ -66,7 +66,7 @@ epochs = cnfg["epochs"] # Number of training epochs
 stop_criterion_epochs = cnfg["stop_criterion_epochs"] # Number of epochs without improvement before stopping
 min_delta = cnfg.get("min_delta", 1e-4)   # Minimum improvement in validation loss to count as progress
 
-DATASET_DIR  = f"datasets\{training_dataset}" # training dataset
+NPZ_PATH = cnfg.get("npz_path", f"datasets/{training_dataset}.npz")  # pre-converted .npz dataset
 print(type(learn_rate))
 
 # FNO architecture
@@ -98,43 +98,17 @@ model_path = os.path.join(f"models\{model_checkpoint_dir}", "fno_eigen.pth")
 # 1. Load dataset
 # ---------------------------------------------------------------------------
 
-def load_csv(path: str) -> np.ndarray:
-    return np.loadtxt(path, delimiter=",")
-
-
-def load_sample(sample_dir: str) -> dict:
-    """Load all four eigenmodes and Gaussian propagation fields from a sample directory."""
-    return {
-        "eigenmode_1_real":       load_csv(os.path.join(sample_dir, "eigenmode_001_real.csv")),
-        "eigenmode_1_imag":       load_csv(os.path.join(sample_dir, "eigenmode_001_imag.csv")),
-        "eigenmode_2_real":       load_csv(os.path.join(sample_dir, "eigenmode_002_real.csv")),
-        "eigenmode_2_imag":       load_csv(os.path.join(sample_dir, "eigenmode_002_imag.csv")),
-        "eigenmode_3_real":       load_csv(os.path.join(sample_dir, "eigenmode_003_real.csv")),
-        "eigenmode_3_imag":       load_csv(os.path.join(sample_dir, "eigenmode_003_imag.csv")),
-        "eigenmode_4_real":       load_csv(os.path.join(sample_dir, "eigenmode_004_real.csv")),
-        "eigenmode_4_imag":       load_csv(os.path.join(sample_dir, "eigenmode_004_imag.csv")),
-        "gaussian_forward_real":  load_csv(os.path.join(sample_dir, "gaussian_prop_forward_real.csv")),
-        "gaussian_forward_imag":  load_csv(os.path.join(sample_dir, "gaussian_prop_forward_imag.csv")),
-        "gaussian_reversed_real": load_csv(os.path.join(sample_dir, "gaussian_prop_reversed_real.csv")),
-        "gaussian_reversed_imag": load_csv(os.path.join(sample_dir, "gaussian_prop_reversed_imag.csv")),
-    }
-
-
-sample_dirs = sorted([
-    os.path.join(DATASET_DIR, d)
-    for d in os.listdir(DATASET_DIR)
-    if os.path.isdir(os.path.join(DATASET_DIR, d))
-])
-
-dataset = [load_sample(d) for d in sample_dirs]
-
-print(f"Loaded {len(dataset)} samples")
+data = np.load(NPZ_PATH)
+print(f"Loaded dataset from '{NPZ_PATH}'")
+print(f"  Keys    : {list(data.keys())}")
+print(f"  Samples : {data['gaussian_forward_real'].shape[0]}")
+print(f"  Grid    : {data['gaussian_forward_real'].shape[1:]} (H x W)")
 
 # ---------------------------------------------------------------------------
 # 2. Build single-step predictor pairs
 # ---------------------------------------------------------------------------
 
-def prepare_pairs(dataset: list, n_eigenmodes: int = N_EIGENMODES):
+def prepare_pairs(data: np.lib.npyio.NpzFile, n_eigenmodes: int = N_EIGENMODES):
     """
     For each consecutive pair of timesteps (t, t+1) and each eigenmode k:
       Input  : [eigenmode_k_real_t,        eigenmode_k_imag_t,
@@ -142,41 +116,52 @@ def prepare_pairs(dataset: list, n_eigenmodes: int = N_EIGENMODES):
                 gaussian_reversed_real_t+1, gaussian_reversed_imag_t+1]  → (H, W, 6)
       Target : [eigenmode_k_real_{t+1}, eigenmode_k_imag_{t+1}]          → (H, W, 2)
 
+    Parameters
+    ----------
+    data : np.lib.npyio.NpzFile
+        Loaded .npz file with arrays of shape (N_samples, H, W) per key.
+
     Returns
     -------
     X : torch.Tensor  shape ((N-1)*n_eigenmodes, H, W, 6)
     Y : torch.Tensor  shape ((N-1)*n_eigenmodes, H, W, 2)
     """
-    X_list, Y_list = [], []
+    N_samples = data["gaussian_forward_real"].shape[0]
+    H, W      = data["gaussian_forward_real"].shape[1:]
+    N_pairs   = N_samples - 1
+    total     = N_pairs * n_eigenmodes
 
-    for t in range(len(dataset) - 1):
-        curr = dataset[t]
-        nxt  = dataset[t + 1]
+    # Pre-allocate output arrays — no repeated reallocation
+    X = np.empty((total, H, W, 6), dtype=np.float32)
+    Y = np.empty((total, H, W, 2), dtype=np.float32)
 
-        for k in range(1, n_eigenmodes + 1):
-            x = np.stack([
-                curr[f"eigenmode_{k}_real"],
-                curr[f"eigenmode_{k}_imag"],
-                nxt["gaussian_forward_real"],    # t+1 Gaussian forward
-                nxt["gaussian_forward_imag"],    # t+1 Gaussian forward
-                nxt["gaussian_reversed_real"],   # t+1 Gaussian reversed
-                nxt["gaussian_reversed_imag"],   # t+1 Gaussian reversed
-            ], axis=-1).astype(np.float32)   # (H, W, 6)
+    # Slice Gaussian arrays once — shared across all eigenmodes
+    gfwd_real = data["gaussian_forward_real"][1:].astype(np.float32)   # (N-1, H, W)
+    gfwd_imag = data["gaussian_forward_imag"][1:].astype(np.float32)
+    grev_real = data["gaussian_reversed_real"][1:].astype(np.float32)
+    grev_imag = data["gaussian_reversed_imag"][1:].astype(np.float32)
 
-            y = np.stack([
-                nxt[f"eigenmode_{k}_real"],
-                nxt[f"eigenmode_{k}_imag"],
-            ], axis=-1).astype(np.float32)   # (H, W, 2)
+    for k in range(1, n_eigenmodes + 1):
+        print(f"Processing eigenmode {k}/{n_eigenmodes} ...")
+        idx = slice((k - 1) * N_pairs, k * N_pairs)
 
-            X_list.append(x)
-            Y_list.append(y)
+        em_real = data[f"eigenmode_{k}_real"].astype(np.float32)   # (N, H, W)
+        em_imag = data[f"eigenmode_{k}_imag"].astype(np.float32)
 
-    X = torch.tensor(np.stack(X_list, axis=0))
-    Y = torch.tensor(np.stack(Y_list, axis=0))
-    return X, Y
+        X[idx, ..., 0] = em_real[:N_pairs]   # eigenmode at t
+        X[idx, ..., 1] = em_imag[:N_pairs]
+        X[idx, ..., 2] = gfwd_real            # Gaussian forward at t+1
+        X[idx, ..., 3] = gfwd_imag
+        X[idx, ..., 4] = grev_real            # Gaussian reversed at t+1
+        X[idx, ..., 5] = grev_imag
+
+        Y[idx, ..., 0] = em_real[1:]          # eigenmode at t+1
+        Y[idx, ..., 1] = em_imag[1:]
+
+    return torch.from_numpy(X), torch.from_numpy(Y)
 
 
-X, Y = prepare_pairs(dataset)
+X, Y = prepare_pairs(data)
 
 # ---------------------------------------------------------------------------
 # Plotting helper
@@ -262,9 +247,11 @@ def torch_circ_aperture(field_batch: torch.Tensor, size: float, lensSize: float)
 # 3. Train / test split and DataLoaders
 # ---------------------------------------------------------------------------
 
-# n_train is determined by the amount of data we were able to load up altogether 
+# If it is not pre-specified in the configuration file, then the total number of training samples, n_total, reflects the actual number of training samples in the training set.
 
-n_total = len(X)
+cnfg.setdefault("n_total", len(X))
+
+n_total = cnfg["n_total"]
 n_train = int(n_total*train_test_split) # so if train_test_split is 0.90, then 90% of the dataset is used for training, while the rest is used for validation
 
 x_train, x_test = X[:n_train], X[n_train:]
@@ -276,7 +263,7 @@ training_set = DataLoader(TensorDataset(x_train, y_train), batch_size=batch_size
 testing_set  = DataLoader(TensorDataset(x_test,  y_test),  batch_size=batch_size, shuffle=False)
 
 # Report the train/validation size
-
+print(f" Total number of training samples: {n_total}")
 print(f" Number of training set batches: {len(training_set)} ")
 print(f" Number of validation set batches: {len(testing_set)} ")
 
