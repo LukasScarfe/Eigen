@@ -68,9 +68,23 @@ if __name__ == "__main__":
             Gaussian_prop = propChannel(Gaussian, z, abbs)
             Gaussian_prop_reversed = propChannel(Gaussian,z,abbs[::-1])
 
+            # Propagate LG modes with l = +-1
+            LG_1 = OAM(Begin(size, wavelength, N), w0, 1)
+            LG_1_prop = propChannel(LG_1, z, abbs)
+            LG_1_prop_reversed = propChannel(LG_1,z,abbs[::-1])
+            LG_neg1 = OAM(Begin(size, wavelength, N), w0, -1)
+            LG_neg1_prop = propChannel(LG_1, z, abbs)
+            LG_neg1_prop_reversed = propChannel(LG_1,z,abbs[::-1])
+
             if plotting:
                 # Plot before/after propagation of Gaussian for reference
                 plot = plot_beam([Gaussian, Gaussian_prop], rows=2)
+                plt.show();plt.close()
+                # Plot before/after propagation of LG for reference
+                plot = plot_beam([LG_1, LG_1_prop], rows=2)
+                plt.show();plt.close()
+                # Plot before/after propagation of LG for reference
+                plot = plot_beam([LG_neg1, LG_neg1_prop], rows=2)
                 plt.show();plt.close()
 
                 # Plot phase screens
@@ -103,6 +117,19 @@ if __name__ == "__main__":
 
                 np.savetxt(f"{dataset_folder_name_t}/gaussian_prop_reversed_real.csv", Gaussian_prop_reversed.field.real, delimiter=",")
                 np.savetxt(f"{dataset_folder_name_t}/gaussian_prop_reversed_imag.csv", Gaussian_prop_reversed.field.imag, delimiter=",")
+
+                # Save output LG beams
+                np.savetxt(f"{dataset_folder_name_t}/LG_1_prop_forward_real.csv", LG_1_prop.field.real, delimiter=",")
+                np.savetxt(f"{dataset_folder_name_t}/LG_1_prop_forward_imag.csv", LG_1_prop.field.imag, delimiter=",")
+
+                np.savetxt(f"{dataset_folder_name_t}/LG_1_prop_reversed_real.csv", LG_1_prop_reversed.field.real, delimiter=",")
+                np.savetxt(f"{dataset_folder_name_t}/LG_1_prop_reversed_imag.csv", LG_1_prop_reversed.field.imag, delimiter=",")
+
+                np.savetxt(f"{dataset_folder_name_t}/LG_neg1_prop_forward_real.csv", LG_neg1_prop.field.real, delimiter=",")
+                np.savetxt(f"{dataset_folder_name_t}/LG_neg1_prop_forward_imag.csv", LG_neg1_prop.field.imag, delimiter=",")
+
+                np.savetxt(f"{dataset_folder_name_t}/LG_neg1_prop_reversed_real.csv", LG_neg1_prop_reversed.field.real, delimiter=",")
+                np.savetxt(f"{dataset_folder_name_t}/LG_neg1_prop_reversed_imag.csv", LG_neg1_prop_reversed.field.imag, delimiter=",")
 
                 # Save best four eigenmodes
                 for j in range(4):

@@ -3,7 +3,7 @@ import os, subprocess
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
-matplotlib.use("Agg") # idk i need this when running a py script directly
+# matplotlib.use("Agg") # idk i need this when running a py script directly
 
 from LightPipes import Field, Intensity, Phase
 
