@@ -35,7 +35,7 @@ shift = args.ii
 
 # OMIT IF YOU ARE USING THIS IN A CLUSTER
 
-shift = 0
+#shift = 0
 
 # These parameters we can safely leave fixed/hard-coded
 
@@ -88,11 +88,15 @@ lensSize = size/4 # aperture radius (metres) [= size/4]
 
 cnfg.setdefault("model_checkpoint_dir", "trained_model_eigens")
 model_checkpoint_dir = cnfg["model_checkpoint_dir"]
-os.makedirs(f"models\{model_checkpoint_dir}", exist_ok=True)
 
 # Create model directory (if it doesn't already exist)
-
+os.makedirs(f"models\{model_checkpoint_dir}", exist_ok=True)
 model_path = os.path.join(f"models\{model_checkpoint_dir}", "fno_eigen.pth")
+
+# Create plotting directory (if it doesn't exist yet.) 
+
+os.makedirs(f"training_plots\{model_checkpoint_dir}", exist_ok=True)
+plotting_path = f"training_plots\{model_checkpoint_dir}"
 
 # ---------------------------------------------------------------------------
 # 1. Load dataset
@@ -381,8 +385,8 @@ for epoch in range(epochs):
     test_rel_l2_history.append(test_relative_l2)
 
     # Plot the train and test loss iteratively with each epoch
-
-    plot_loss_curves(train_mse_history, test_rel_l2_history)
+    
+    plot_loss_curves(train_mse_history, test_rel_l2_history, plots_dir=plotting_path)
 
     if epoch % freq_print == 0:
         print(
