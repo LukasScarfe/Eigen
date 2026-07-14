@@ -121,17 +121,16 @@ class UNet(nn.Module):
     sixMeasure  - whether the input has 6 channels (True) or 5 channels (False)
     """
 
-    def __init__(self, num_pixel, nnType, kernelSize=3, dropRate=0.1, layers=1,
-                 sixMeasure=False):
+    def __init__(self, num_pixel, nnType, kernelSize=3, dropRate=0.1, layers=1, in_channels=6):
         super().__init__()
         self.num_pixel = num_pixel
-        in_channels = 6 if sixMeasure else 5
 
         if nnType == 0:  # 64 x 64
-            enc_filters = [32, 64, 128, 256, 512, 1024]
-            middle_filters = 2048
-            dec_filters = [1024, 512, 256, 128, 64, 32]
-            dec_dropout = [True, True, True, False, False, False]
+            enc_filters = [32, 64, 128]
+            middle_filters = 256
+            dec_filters = [128, 64, 32]
+            dec_dropout = [True, False, False]
+
         elif nnType == 1:  # 128 x 128
             enc_filters = [32, 64, 128, 256, 512, 1024, 2048]
             middle_filters = 4096
@@ -163,6 +162,7 @@ class UNet(nn.Module):
 
         # ---- Output projection ----
         # Output has 2 channels: intensity (scaled to [0, 1]) and phase (scaled to [0, 2*pi])
+
         self.out_conv = nn.ConvTranspose2d(ch, 2, kernel_size=1, stride=1, padding=0)
         self.register_buffer(
             "out_scale", torch.tensor([1.0, 2 * math.pi]).view(1, 2, 1, 1)
@@ -188,6 +188,7 @@ class UNet(nn.Module):
 
 
 if __name__ == "__main__":
+
     model = UNet(num_pixel=64, nnType=0, kernelSize=3, dropRate=0.1, layers=1, sixMeasure=False)
     dummy = torch.randn(2, 5, 64, 64)
     out = model(dummy)
