@@ -165,7 +165,7 @@ class UNet(nn.Module):
 
         self.out_conv = nn.ConvTranspose2d(ch, 2, kernel_size=1, stride=1, padding=0)
         self.register_buffer(
-            "out_scale", torch.tensor([1.0, 2 * math.pi]).view(1, 2, 1, 1)
+            "out_scale", torch.tensor([1.0, 1.0]).view(1, 2, 1, 1)
         )
 
     def forward(self, x):

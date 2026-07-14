@@ -183,6 +183,7 @@ def overlap_loss(pred, tgt, eps=1e-8):
         Scalar loss = 1 - mean(F) over the batch.
         A value of 0 means perfect overlap; 1 means no overlap.
     """
+
     # Build complex tensors (B, H, W) from the two real channels
     pred_c = torch.complex(pred[..., 0], pred[..., 1])
     tgt_c  = torch.complex(tgt[..., 0],  tgt[..., 1])
@@ -201,5 +202,84 @@ def overlap_loss(pred, tgt, eps=1e-8):
 
     return 1.0 - F.mean()
 
+
+def overlap_loss(pred, tgt, eps=1e-8):
+    """
+    Overlap (fidelity) loss for complex optical eigenmodes.
+
+    Computes the normalised overlap integral:
+
+        F = |<E_pred, E_true>|^2 / (||E_pred||^2 * ||E_true||^2)
+
+    where the inner product is defined as:
+
+        <E_pred, E_true> = sum_{i,j}  E_pred*(i,j) · E_true(i,j)
+
+    Args:
+        pred (Tensor): Predicted field, shape (B, H, W, 2), channels-last
+                       with channel 0 = Re and channel 1 = Im.
+        tgt  (Tensor): Ground-truth field, same shape as pred.
+        eps  (float):  Small value for numerical stability.
+
+    Returns:
+        Scalar loss = 1 - mean(F) over the batch.
+        A value of 0 means perfect overlap; 1 means no overlap.
+    """
+    
+    # Build complex tensors (B, H, W) from the two real channels
+    pred_c = torch.complex(pred[..., 0], pred[..., 1])
+    tgt_c  = torch.complex(tgt[..., 0],  tgt[..., 1])
+
+    # Inner product: sum_{i,j} E_pred*(i,j) · E_true(i,j)  → shape (B,)
+    inner = (pred_c.conj() * tgt_c).sum(dim=(-2, -1))
+
+    # Squared norms: ||E||^2 = sum_{i,j} |E(i,j)|^2  → shape (B,)
+    norm_pred_sq = (pred_c.abs() ** 2).sum(dim=(-2, -1))
+    norm_tgt_sq  = (tgt_c.abs()  ** 2).sum(dim=(-2, -1))
+
+    # Fidelity F ∈ [0, 1]  → shape (B,)
+    F = inner.abs() ** 2 / (norm_pred_sq * norm_tgt_sq + eps)
+
+    # Return 1 - F so that minimising the loss maximises the overlap
+
+    return 1.0 - F.mean()
+
+
+def overlap_loss_int_phase(pred, tgt, eps=1e-8):
+    """
+    Overlap (fidelity) loss for complex optical eigenmodes, reconstructed
+    from intensity/phase channels.
+
+        F = |<E_pred, E_true>|^2 / (||E_pred||^2 * ||E_true||^2)
+
+    Args:
+        pred (Tensor): Predicted field, shape (B, H, W, 2), channels-last
+                       with channel 0 = intensity, channel 1 = phase.
+        tgt  (Tensor): Ground-truth field, same shape/layout as pred.
+        eps  (float):  Numerical stability floor for sqrt and denominator.
+
+    Returns:
+        Scalar loss = 1 - mean(F) over the batch.
+    """
+    # For the purposes of the calculation, we scale phase up to 2*np.pi
+
+    pred_phase = pred[..., 1]*2.0*np.pi
+    tgt_phase = tgt[..., 1]*2.0*np.pi
+
+    # Rectify intensity before sqrt: guards against negative network
+    # output AND against unbounded gradient as I -> 0
+    
+    I_pred = torch.clamp(pred[..., 0], min=0.0)
+    I_tgt  = torch.clamp(tgt[..., 0],  min=0.0)
+
+    pred_c = torch.sqrt(I_pred + eps) * torch.exp(1j * pred[..., 1])
+    tgt_c  = torch.sqrt(I_tgt  + eps) * torch.exp(1j * tgt[..., 1])
+
+    inner = (pred_c.conj() * tgt_c).sum(dim=(-2, -1))
+    norm_pred_sq = (pred_c.abs() ** 2).sum(dim=(-2, -1))
+    norm_tgt_sq  = (tgt_c.abs()  ** 2).sum(dim=(-2, -1))
+
+    F = inner.abs() ** 2 / (norm_pred_sq * norm_tgt_sq + eps)
+    return 1.0 - F.mean()
 
 
