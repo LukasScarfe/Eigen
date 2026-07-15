@@ -263,12 +263,12 @@ def overlap_loss_int_phase(pred, tgt, eps=1e-8):
     """
     # For the purposes of the calculation, we scale phase up to 2*np.pi
 
-    pred_phase = pred[..., 1]*2.0*np.pi
-    tgt_phase = tgt[..., 1]*2.0*np.pi
+    pred_phase = pred[..., 1]
+    tgt_phase = tgt[..., 1]
 
     # Rectify intensity before sqrt: guards against negative network
     # output AND against unbounded gradient as I -> 0
-    
+
     I_pred = torch.clamp(pred[..., 0], min=0.0)
     I_tgt  = torch.clamp(tgt[..., 0],  min=0.0)
 
