@@ -55,24 +55,7 @@ def eigenmodes(size, wavelength, N, z, eigVecs, abbs):
         F=SubPhase(SubIntensity(F,eigenInt),eigenPhase)
         eigenBeams.append(F)
 
-        # Plot intensity and phase for this eigenmode
-        fig, axes = plt.subplots(1, 2, figsize=(10, 4))
-        fig.suptitle(f'Eigenmode {i+1}')
-
-        im0 = axes[0].imshow(eigenInt, cmap='inferno')
-        axes[0].set_title('Intensity')
-        axes[0].axis('off')
-        plt.colorbar(im0, ax=axes[0])
-
-        im1 = axes[1].imshow(eigenPhase, cmap='hsv', vmin=-np.pi, vmax=np.pi)
-        axes[1].set_title('Phase')
-        axes[1].axis('off')
-        plt.colorbar(im1, ax=axes[1])
-
-        plt.tight_layout()
-        plt.show(block=False)
-        input(f"  Showing eigenmode {i+1}. Press Enter to continue to the next eigenmode...")
-        plt.close(fig)
+   
 
     eigenBeamsPropagated=[propChannel(beam,z,abbs) for beam in progress(eigenBeams, desc="Propagating eigenbeams...")]
 

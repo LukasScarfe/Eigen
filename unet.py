@@ -118,12 +118,21 @@ class UNet(nn.Module):
     kernelSize  - convolution kernel size
     dropRate    - dropout rate used in the deeper decoder blocks
     layers      - number of conv layers per encoder/decoder block
-    sixMeasure  - whether the input has 6 channels (True) or 5 channels (False)
+    in_channels - number of input channels
+    out_channels- number of output channels (default 2)
+    use_sigmoid - whether to squash the output through sigmoid*out_scale (suitable
+                  for bounded targets such as normalised [0,1] intensity / [0, 2*pi)
+                  phase deltas). Set to False for unbounded targets such as raw
+                  Re/Im deltas, in which case the raw ConvTranspose2d output is
+                  returned unchanged.
+    out_scale   - per-channel scale applied after the sigmoid when use_sigmoid=True
     """
 
-    def __init__(self, num_pixel, nnType, kernelSize=3, dropRate=0.1, layers=1, in_channels=6):
+    def __init__(self, num_pixel, nnType, kernelSize=3, dropRate=0.1, layers=1,
+                 in_channels=6, out_channels=2, use_sigmoid=True, out_scale=None):
         super().__init__()
         self.num_pixel = num_pixel
+        self.use_sigmoid = use_sigmoid
 
         if nnType == 0:  # 64 x 64
             enc_filters = [32, 64, 128]
@@ -161,11 +170,16 @@ class UNet(nn.Module):
             ch = f + skip_ch  # after concatenation with the skip connection
 
         # ---- Output projection ----
-        # Output has 2 channels: intensity (scaled to [0, 1]) and phase (scaled to [0, 2*pi])
+        # By default the output has 2 channels: intensity (scaled to [0, 1]) and
+        # phase (scaled to [0, 2*pi]) via a sigmoid squash. When use_sigmoid=False
+        # (e.g. for raw/unbounded Re/Im deltas) the linear ConvTranspose2d output
+        # is returned directly, with no activation applied.
 
-        self.out_conv = nn.ConvTranspose2d(ch, 2, kernel_size=1, stride=1, padding=0)
+        self.out_conv = nn.ConvTranspose2d(ch, out_channels, kernel_size=1, stride=1, padding=0)
+        if out_scale is None:
+            out_scale = [1.0] * out_channels
         self.register_buffer(
-            "out_scale", torch.tensor([1.0, 1.0]).view(1, 2, 1, 1)
+            "out_scale", torch.tensor(out_scale, dtype=torch.float32).view(1, out_channels, 1, 1)
         )
 
     def forward(self, x):
@@ -183,13 +197,15 @@ class UNet(nn.Module):
             x = torch.cat([x, skip], dim=1)
 
         x = self.out_conv(x)
-        x = torch.sigmoid(x) * self.out_scale
+        if self.use_sigmoid:
+            x = torch.sigmoid(x) * self.out_scale
         return x
 
 
 if __name__ == "__main__":
 
-    model = UNet(num_pixel=64, nnType=0, kernelSize=3, dropRate=0.1, layers=1, sixMeasure=False)
-    dummy = torch.randn(2, 5, 64, 64)
+    model = UNet(num_pixel=64, nnType=0, kernelSize=3, dropRate=0.1, layers=1, in_channels=6)
+    dummy = torch.randn(2, 6, 64, 64)
     out = model(dummy)
     print("Output shape:", out.shape)  # expected: (2, 2, 64, 64)
+
