@@ -2,7 +2,7 @@ import numpy as np
 import math
 
 from LightPipes import Field
-from LightPipes import BeamMix, GaussLaguerre, Phase, SubPhase
+from LightPipes import BeamMix, GaussLaguerre, GaussHermite, Phase, SubPhase
 
 
 def ell(d: int) -> np.ndarray:
@@ -165,6 +165,31 @@ def OAM(F: Field, beam_radius: float, state: int=0, phase: float=0, amp: float=1
     """
 
     F=GaussLaguerre(F, beam_radius, p=0, l=state, A=amp*(1/beam_radius)*np.sqrt(2/(np.pi*(math.factorial(abs(state))))), ecs=0)
+    F=SubPhase(F,Phase(F)+phase)
+    return F
+
+
+def HG(F: Field, beam_radius: float, m: int=0, n: int=0, phase: float=0, amp: float=1.0) -> Field:
+    """
+    Create a Hermite-Gauss (HG_{m,n}) beam LightPipes Field.
+
+    :param F: Input LightPipes field.
+    :type F: Field
+    :param beam_radius: radius of the beam waist.
+    :type beam_radius: float
+    :param m: horizontal mode index.
+    :type m: int
+    :param n: vertical mode index.
+    :type n: int
+    :param phase: Additional fixed relative phase component to add to the beam, used for making optical modes which are superpositions with relative phases.
+    :type phase: float
+    :param amp: amplitude of the HG beam.
+    :type amp: float
+    :return: HG mode output.
+    :rtype: Field
+    """
+
+    F=GaussHermite(F, beam_radius, m=m, n=n, A=amp)
     F=SubPhase(F,Phase(F)+phase)
     return F
 
