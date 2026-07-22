@@ -61,6 +61,8 @@ parameters = {
     'dataset_collect' : True, # Set parameter to save data to a folder and propagate a Gaussian through the channel too
     'plotting' : False, # Plot stuff boolean
     'dataset_folder_name' : "dataset", # Dataset folder name
+    'animate' : True, # Render the end-of-run top-4 eigenmode animation
+    'fps' : 2, # Frames per second for the eigenmode animation
 }
 
 # Writing the data to a YAML file

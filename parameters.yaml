@@ -11,8 +11,10 @@ N: 64
 Rytov_part: 0.08520772826687192
 Rytov_total: 1.0820706998932237
 TurbStrength: MidTurb
+animate: true
 dataset_collect: true
 dataset_folder_name: dataset
+fps: 2
 lensSize: 0.1125
 num_of_fluctuations: 3
 num_phase_screens: 4
