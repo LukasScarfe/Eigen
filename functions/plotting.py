@@ -13,10 +13,10 @@ pmap, imap, _, _ = colours()
 
 
 #Show a plot of a single beam, or an array of beams with phase and intensity
-def plot_beam(Fs: list[Field],rows: int=1,aperature: float=0,intensity: bool=True,phase: bool=True,transparent: bool=False, dpi: int=300) -> plt.Figure:
+def plot_beam(Fs: list[Field],rows: int=1,aperature: float=0,intensity: bool=True,phase: bool=True,transparent: bool=False, dpi: int=300, titles: list=None) -> plt.Figure:
     """
-    Create and return a matplotlib plot of an LightPipes beam or a list of them, in a row. 
-    
+    Create and return a matplotlib plot of an LightPipes beam or a list of them, in a row.
+
     :param Fs: Single LightPipe beam or a list of LightPipe beams to plot
     :type Fs: list[Field] or Field
     :param rows: number of rows to plot if plotting many beams
@@ -29,6 +29,9 @@ def plot_beam(Fs: list[Field],rows: int=1,aperature: float=0,intensity: bool=Tru
     :type phase: bool
     :param dpi: dpi to create the figure at
     :type dpi: int
+    :param titles: optional list of per-panel labels (one per beam). When given, a small title
+        is drawn above each subplot and room is left for it; when None, panels stay label-free.
+    :type titles: list
     :return: Resultant matplotlib figure
     :rtype: Figure
     """
@@ -61,6 +64,9 @@ def plot_beam(Fs: list[Field],rows: int=1,aperature: float=0,intensity: bool=Tru
         ax.xaxis.set_major_locator(plt.NullLocator())
         ax.yaxis.set_major_locator(plt.NullLocator())
 
+        if titles is not None and index < len(titles):
+            ax.set_title(titles[index], fontsize=6, pad=2)
+
         Phi=np.mod(Phase(F),2*np.pi)
 
         if transparent==True:
@@ -87,9 +93,12 @@ def plot_beam(Fs: list[Field],rows: int=1,aperature: float=0,intensity: bool=Tru
                 circle = plt.Circle(centre,aperature*pixels/size, color='w', fill=False,linewidth=0.5)
                 ax.add_patch(circle)
 
-    plt.subplots_adjust(left=0, right=1, top=1, bottom=0, wspace=0, hspace=0)
-
-    fig.tight_layout(pad=0, w_pad=0, h_pad=0)
+    if titles is not None:
+        # Leave headroom for the per-panel titles instead of the edge-to-edge packing
+        fig.tight_layout(pad=0.3, w_pad=0.2, h_pad=0.8)
+    else:
+        plt.subplots_adjust(left=0, right=1, top=1, bottom=0, wspace=0, hspace=0)
+        fig.tight_layout(pad=0, w_pad=0, h_pad=0)
 
     return fig
 
