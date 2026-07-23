@@ -45,6 +45,21 @@ They propagate through the channel and are distinguishable from one another at a
 Eigenmodes however are not guaranteed to be orthogonal so it is a tough thing to know what to do with that information.
 Should we use the `Hermitian' eigenmodes that are orthogonal but change form in propagation, or should we use the `non-Hermitian' eigenmodes that are not guaranteed to be orthogonal, but maintain their exact mode throughout the channel?
 
+\subsection{Tracking Eigenmodes Between Frames}
+As the turbulence evolves in time, the eigenvalue solver returns the modes in an arbitrary order that reshuffles from frame to frame, and it assigns each mode an arbitrary global phase. To follow a given physical mode across the time series we must therefore re-identify it in every frame rather than trusting the solver's ordering. We do this by matching each mode to the one it most resembles in a reference set. The natural measure of resemblance is the overlap between two modes, made insensitive to the arbitrary phase by taking its magnitude,
+\begin{equation}
+    S_{jc} = \frac{\abs{\braket{r_j}{e_c}}}{\left\| \ket{r_j} \right\| \, \left\| \ket{e_c} \right\|} \in [0,1],
+\end{equation}
+where $\ket{r_j}$ is reference mode $j$ and $\ket{e_c}$ is candidate mode $c$ from the current frame. We find the one-to-one assignment $\sigma$ minimising the total cost across all tracked modes,
+\begin{equation}
+    \sigma = \arg\min_{\sigma} \sum_j \left[ \left( 1 - S_{j\,\sigma(j)} \right) - \lambda \, w_{\sigma(j)} \right],
+\end{equation}
+solved with the Hungarian algorithm. The small bonus $\lambda w_c$ rewards smoothness $w_c\in[0,1]$, the fraction of a mode's spectral power in a low-frequency disc (high for few lobes), so near-ties resolve toward the smoother mode; the first frame likewise seeds the tracks with the smoothest modes rather than by eigenvalue rank. The reference set is not the previous frame but a slowly-updated anchor per mode: after a match the anchor is nudged towards the found mode by an exponential moving average,
+\begin{equation}
+    \ket{r_j} \leftarrow (1-\alpha)\ket{r_j} + \alpha \ket{e_{\sigma(j)}},
+\end{equation}
+then renormalised, so it tracks genuine drift while a single anomalous frame cannot pull the identity away. The rate $\alpha$ is graded by match quality --- strong overlap updates fully, marginal creeps slowly, and a swap-low overlap freezes the anchor until a good match returns --- except during a brief warm-up, where the anchor follows fast at a fixed high rate and never freezes. Once matched, each mode's global phase is pinned to its anchor so the saved fields are coherent in time, not just in intensity.
+
 
 \section{Simulations}
 
