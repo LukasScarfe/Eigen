@@ -49,23 +49,42 @@ if __name__ == "__main__":
 
     # Define data generation function
     def data_gen(size, N, lensSize, wavelength, w0, z, num_phase_screens, C2_n, TurbStrength, shift, num_of_fluctuations, start_point,
-                phase_screen_seed, Rytov_total, Rytov_part, dataset_collect, plotting, dataset_folder_name, animate=True, fps=2):
+                phase_screen_seed, Rytov_total, Rytov_part, dataset_collect, plotting, dataset_folder_name, animate=True, fps=2,
+                screen_update_mode="all", n_eigenmodes=4):
 
         # Pre-define variables
         abbs = []
         allEigenBeams = []
         allEigenBeamsPropagated = []
-        eigenframes = []            # top-4 eigenbeams per timestep, for the end-of-run animation
+        eigenframes = []            # top-n_eigenmodes eigenbeams per timestep, for the end-of-run animation
         probe_frames_fwd = []       # per-timestep list of forward-propagated probe fields (for animation)
         probe_frames_rev = []       # per-timestep list of reversed-propagated probe fields (for animation)
         prev_fwd = None             # previous timestep's forward-propagated probes (for diffs)
         prev_rev = None             # previous timestep's reversed-propagated probes (for diffs)
-        ref_vecs = None             # previous timestep's tracked eigenvectors (for mode tracking)
-        n_track = 4                 # number of eigenmodes we follow/save/animate
+        anchor_vecs = None          # per-track EMA anchor eigenvectors (drift-following, swap-resistant)
+        n_track = n_eigenmodes      # number of eigenmodes we follow/save/animate
         overlap_history = []        # per-timestep matched overlaps for each track (for the tracking plot)
+        screen_cycle = 0            # round-robin counter for screen_update_mode == "cycle" (which screen advances)
+        # --- Mode-tracking config ---
+        track_ema = 0.5             # anchor EMA weight when a match is strong: anchor <- (1-a)*anchor + a*new. Lower = steadier.
+        track_lobe_weight = 0.05    # low-lobe tiebreak strength in the matching cost (small: only breaks near-ties)
+        track_warn_overlap = 0.5    # matches below this are flagged in the plot/log (labeling unreliable)
+        track_hold_overlap = 0.3    # matches below this FREEZE the anchor (near-certain swap); between hold&warn the
+                                    #   anchor still creeps slowly so it follows real drift instead of going stale.
+        track_warmup_steps = 5      # first N frames the channel is still settling from the seed; use a faster anchor
+                                    #   lock (below) and never freeze, so the anchor follows the fast early evolution.
+        track_warmup_ema = 0.9      # anchor EMA rate during warm-up (vs. track_ema afterwards). High = follow fast.
 
         for i in range(start_point):
-            abbs = gen_turb_channel(size, N, wavelength, z, C2_n[TurbStrength], num_phase_screens, phase_screen_seed, shift, abbs)
+            # Warm-up steps before data collection. The first call (abbs == []) creates the
+            # screens; the rest evolve them, honouring screen_update_mode so cycle-mode warm-up
+            # advances one screen per step too (counter carries into the main loop).
+            created = (abbs == [])   # True only on the creation call, where no screen is extended
+            active_screen = screen_cycle % num_phase_screens
+            abbs = gen_turb_channel(size, N, wavelength, z, C2_n[TurbStrength], num_phase_screens, phase_screen_seed, shift, abbs,
+                                    update_mode=screen_update_mode, active_screen=active_screen)
+            if not created:      # count only genuine evolution steps (not the creation call)
+                screen_cycle += 1
 
         for i in progress(range(start_point,start_point+num_of_fluctuations+1,1), desc="Generating data..."):
             # Update user
@@ -83,29 +102,65 @@ if __name__ == "__main__":
             eigVals, eigVecs, eigMags = eigen_vals_vecs(end_fields)
 
             # Track modes across timesteps so index j follows the same physical mode.
-            # First timestep defines the tracks (keep eigenvalue-magnitude order).
-            if ref_vecs is not None:
-                perm, overlaps = track_modes(ref_vecs, eigVecs, n_track=n_track)
-                # Warn (but proceed) if a track's best overlap is weak -> labeling is unreliable
+            if anchor_vecs is not None:
+                # Match against the EMA anchor (drift-following but swap-resistant), with a
+                # low-lobe tiebreak so near-ties resolve toward fewer-lobed modes.
+                perm, overlaps, weak = track_modes(
+                    anchor_vecs, eigVecs, n_track=n_track, N=N,
+                    lobe_weight=track_lobe_weight, min_overlap=track_warn_overlap)
                 for j, ov in enumerate(overlaps):
-                    if ov < 0.5:
-                        print(f"WARNING: timestep {i+1}, eigenmode track {j+1} low overlap {ov:.2f} (mode identity may have swapped)")
+                    if weak[j]:
+                        print(f"WARNING: timestep {i+1}, eigenmode track {j+1} low overlap {ov:.2f} "
+                              f"(labeling unreliable)")
                 overlap_history.append(overlaps)
                 # Reorder eigenvalues/vectors/magnitudes so column j is the mode matched to track j
                 eigVecs = eigVecs[:, perm]
                 eigVals = eigVals[perm]
                 eigMags = eigMags[perm]
-                # Pin the global phase of each tracked mode to its reference, so the SAVED
+                # Pin the global phase of each tracked mode to its anchor, so the SAVED
                 # eigenmode fields are temporally coherent (not just the intensity animation).
                 for j in range(min(n_track, eigVecs.shape[1])):
-                    ph = np.angle(np.vdot(ref_vecs[:, j], eigVecs[:, j]))
+                    ph = np.angle(np.vdot(anchor_vecs[:, j], eigVecs[:, j]))
                     eigVecs[:, j] = eigVecs[:, j] * np.exp(-1j * ph)
+                # Update each track's anchor with an overlap-GRADED EMA so it follows real
+                # drift but resists swaps and never goes permanently stale:
+                #   overlap >= warn : full EMA (rate track_ema)         -> normal drift-following
+                #   hold <= ov < warn: slow creep (EMA rate scaled down) -> keeps re-acquiring a
+                #                       legitimately drifting mode instead of freezing forever
+                #   overlap <  hold : freeze (near-certain swap; one bad frame can't poison the run)
+                warming_up = i < track_warmup_steps
+                for j in range(min(n_track, eigVecs.shape[1])):
+                    ov = overlaps[j]
+                    if warming_up:
+                        # Channel still settling from the seed: follow the fast early
+                        # evolution at a high rate and never freeze, so the anchor doesn't
+                        # get left behind on a mode that is legitimately moving quickly.
+                        rate = track_warmup_ema
+                    elif ov < track_hold_overlap:
+                        continue                                     # freeze (near-certain swap)
+                    elif ov >= track_warn_overlap:
+                        rate = track_ema                             # full follow
+                    else:
+                        # linearly ramp the rate from 0 (at hold) to track_ema (at warn)
+                        rate = track_ema * (ov - track_hold_overlap) / (track_warn_overlap - track_hold_overlap)
+                    a = anchor_vecs[:, j] * (1.0 - rate) + eigVecs[:, j] * rate
+                    anchor_vecs[:, j] = a / (np.linalg.norm(a) + 1e-30)
             else:
-                # First timestep defines the tracks: perfect self-match by construction
+                # First timestep DEFINES the tracks: pick them by fewest lobes (smoothest
+                # modes) rather than raw eigenvalue-magnitude rank, so we follow the
+                # fundamental-like modes the user cares about (and which are trackable).
+                pool = min(max(4 * n_track, n_track), eigVecs.shape[1])
+                smooth = mode_smoothness(eigVecs[:, :pool], N)
+                init_sel = np.argsort(smooth)[::-1][:n_track]          # smoothest first
+                perm = np.concatenate([init_sel,
+                                       [c for c in range(eigVecs.shape[1]) if c not in set(init_sel.tolist())]])
+                eigVecs = eigVecs[:, perm]
+                eigVals = eigVals[perm]
+                eigMags = eigMags[perm]
                 overlap_history.append(np.ones(min(n_track, eigVecs.shape[1])))
-
-            # Remember this timestep's tracked eigenvectors as the reference for the next step
-            ref_vecs = eigVecs[:, :n_track].copy()
+                # Seed the anchor from the selected modes (unit-normalised).
+                anchor_vecs = eigVecs[:, :n_track].copy()
+                anchor_vecs /= (np.linalg.norm(anchor_vecs, axis=0, keepdims=True) + 1e-30)
 
             # Determine eigenmodes
             eigenBeams, eigenBeamsPropagated = eigenmodes(size, wavelength, N, z, eigVecs, abbs)
@@ -113,16 +168,20 @@ if __name__ == "__main__":
             # allEigenBeams.append(eigenBeams)
             # allEigenBeamsPropagated.append(eigenBeamsPropagated)
 
-            # Keep the top-4 eigenbeams for the end-of-run animation
-            eigenframes.append(eigenBeams[:4])
+            # Keep the top-n_eigenmodes eigenbeams for the end-of-run animation
+            eigenframes.append(eigenBeams[:n_track])
 
             if plotting:
                 # plotting eigenbeams before/after propaganda
                 plot=plot_beam(eigenBeams[:5]+eigenBeamsPropagated[:5],rows=2,dpi=N*3)
                 plt.show();plt.close()
 
-            # Fluctuate turbulent channel
-            abbs = gen_turb_channel(size, N, wavelength, z, C2_n[TurbStrength], num_phase_screens, phase_screen_seed, shift, abbs)
+            # Fluctuate turbulent channel. In "cycle" mode only one screen advances per step
+            # (round-robin), evolving the channel more gradually than "all" (every screen each step).
+            active_screen = screen_cycle % num_phase_screens
+            abbs = gen_turb_channel(size, N, wavelength, z, C2_n[TurbStrength], num_phase_screens, phase_screen_seed, shift, abbs,
+                                    update_mode=screen_update_mode, active_screen=active_screen)
+            screen_cycle += 1
 
             # Define probe input fields (name -> input Field).
             # l = 0 is the Gaussian, so it is generated once and not duplicated as LG_0.
@@ -181,8 +240,8 @@ if __name__ == "__main__":
                     save_diff(f"{dataset_folder_name_t}/{name}_forward_diff.npz",  probes_fwd[name].field, prev_f[name].field)
                     save_diff(f"{dataset_folder_name_t}/{name}_reversed_diff.npz", probes_rev[name].field, prev_r[name].field)
 
-                # Save best four eigenmodes (amplitude + phase)
-                for j in range(4):
+                # Save best n_eigenmodes eigenmodes (amplitude + phase)
+                for j in range(n_track):
                     save_ap(f"{dataset_folder_name_t}/eigenmode_{j+1:03d}.npz", eigenBeams[j].field)
 
                 # Save parameters into a textfile (only once)
@@ -197,6 +256,8 @@ if __name__ == "__main__":
                         file.write(f"Number of phase screens: {num_phase_screens}\n")
                         file.write(f"C^2_n: {C2_n[TurbStrength]}\n")
                         file.write(f"Pixels shifted per time step: {shift}\n")
+                        file.write(f"Screen update mode: {screen_update_mode} "
+                                   f"({'all screens advance each step' if screen_update_mode == 'all' else 'one screen advances per step, round-robin'})\n")
                         file.write(f"Phase screen seed: {phase_screen_seed}\n")
                         file.write(f"Total Rytov parameter: {Rytov_total}\n")
                         file.write(f"Partial Rytov parameter: {Rytov_part}\n")
@@ -211,7 +272,7 @@ if __name__ == "__main__":
             # print top 5 eigenvalue magnitudes
             # print(f"Eigenvalue magnitudes: {eigMags[:5]}")
 
-        # Animate the evolution of the top-4 eigenmodes (intensity only) over the run
+        # Animate the evolution of the top-n_eigenmodes eigenmodes (intensity only) over the run
         if animate and eigenframes:
             frames_dir = f"{dataset_folder_name}/_eigen_frames"
             os.makedirs(frames_dir, exist_ok=True)
@@ -219,7 +280,7 @@ if __name__ == "__main__":
                 fig = plot_beam(list(beams), rows=1, intensity=True, phase=False, dpi=N*3)
                 fig.savefig(f"{frames_dir}/frame_{k:04d}.png")
                 plt.close('all')   # plot_beam draws on figure 1; clear it between frames
-            create__web_movie(frames_dir, f"{dataset_folder_name}/eigenmodes_top4.webm", fps=fps)
+            create__web_movie(frames_dir, f"{dataset_folder_name}/eigenmodes_top{n_track}.webm", fps=fps)
             shutil.rmtree(frames_dir)   # remove the PNG frames once the video is made
 
         # Animate the probe beams (intensity only): one combined 2x4 grid per timestep,
