@@ -1,4 +1,4 @@
-import os, subprocess
+import os, subprocess, tempfile
 
 import numpy as np
 import matplotlib
@@ -157,26 +157,38 @@ def create__web_movie(image_folder: str, output_location: str, fps: int=60) -> N
     :type fps: int
     """
     # Ensure filenames are sorted (e.g., output0.png, output1.png...)
-    # We use a text file list for FFmpeg to handle non-sequential naming
-    input_list = "images.txt"
+    # We use a text file list for FFmpeg to handle non-sequential naming.
+    # The list goes in a unique temp file so concurrent calls don't clobber
+    # each other and we don't litter the current working directory.
     filenames = sorted([f for f in os.listdir(image_folder) if f.endswith('.png')])
-    with open(input_list, "w") as f:
+    fd, input_list = tempfile.mkstemp(suffix=".txt", prefix="ffconcat_")
+    with os.fdopen(fd, "w") as f:
         for fname in filenames:
-            f.write(f"file '{os.path.join(image_folder, fname)}'\n")
+            abspath = os.path.abspath(os.path.join(image_folder, fname))
+            # Each entry needs an explicit duration so the concat demuxer
+            # stamps real timestamps; without it every frame gets the
+            # "no timestamp" sentinel and ffmpeg spams "invalid dropping".
+            f.write(f"file '{abspath}'\n")
+            f.write(f"duration {1.0 / fps}\n")
+        # The concat demuxer drops the last entry's duration, so repeat the
+        # final frame to give it the intended on-screen time.
+        if filenames:
+            last = os.path.abspath(os.path.join(image_folder, filenames[-1]))
+            f.write(f"file '{last}'\n")
 
     # FFmpeg command for VP9 WebM with Alpha:
     # -f concat: use the text file list
     # -pix_fmt yuva420p: The 'a' stands for Alpha (transparency support)
     # -auto-alt-ref 0: Required for transparency in some VP9 versions
     cmd = [
-        'ffmpeg', '-y', 
-        '-r', str(fps), 
+        'ffmpeg', '-y',
         '-f', 'concat', '-safe', '0', '-i', input_list,
-        '-c:v', 'libvpx-vp9', 
+        '-c:v', 'libvpx-vp9',
         '-crf', '15',          # Quality level (0–63). Lower is better quality.
         '-b:v', '0',           # Required when using -crf for VP9
-        '-pix_fmt', 'yuva420p', 
-        '-auto-alt-ref', '0', 
+        '-pix_fmt', 'yuva420p',
+        '-auto-alt-ref', '0',
+        '-r', str(fps),        # output framerate
         '-deadline', 'good',   # Balance between encode speed and quality
         output_location
     ]
