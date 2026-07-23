@@ -4,11 +4,23 @@
 import numpy as np
 from aotools.turbulence.infinitephasescreen import PhaseScreenVonKarman
 
-def gen_turb_channel(size, N, wavelength, z, C2_n, num_phase_screens, phase_screen_seed, shift, abbs=[]):
+def gen_turb_channel(size, N, wavelength, z, C2_n, num_phase_screens, phase_screen_seed, shift,
+                     abbs=[], update_mode="all", active_screen=None):
+    """
+    Create or evolve the stack of Von Karman phase screens.
+
+    :param update_mode: how the per-step turbulence update is distributed across the stack.
+        "all"   -> every screen advances by `shift` this step (whole channel changes; original behaviour).
+        "cycle" -> only screen index `active_screen` advances; the rest are held frozen. Cycling
+                   `active_screen` round-robin across steps evolves the channel more gradually.
+    :type update_mode: str
+    :param active_screen: which screen to advance when update_mode == "cycle" (ignored for "all").
+    :type active_screen: int or None
+    """
     # First find r0
     r0 = fried(wavelength, C2_n, z, num_phase_screens)
     #print(f"Fried parameter for each phase screen: {r0:.4f}")
-    
+
     # Define outer scale
     L0 = N/2 * size / N * 50 # outer scale
 
@@ -18,6 +30,9 @@ def gen_turb_channel(size, N, wavelength, z, C2_n, num_phase_screens, phase_scre
     else:
         # Extend phase screens if phase screens already defined
         for i,screen in enumerate(abbs):
+            # In "cycle" mode, advance only the one active screen this step; skip the others.
+            if update_mode == "cycle" and i != active_screen:
+                continue
             extend_phase_screen(screen,direction=i,num_steps=shift)
 
     return abbs
