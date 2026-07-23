@@ -6,6 +6,7 @@ __pycache__/
 writeup/Eigen.synctex.gz
 
 /dataset
+datasets
 
 Eigen.code-workspace
 .vscode/
@@ -18,6 +19,4 @@ data/FashionMNIST/raw/train-images-idx3-ubyte.gz
 data/FashionMNIST/raw/train-labels-idx1-ubyte
 data/FashionMNIST/raw/train-labels-idx1-ubyte.gz
 model.pth
-dataset2
-dataset_48
 SESSION_NOTES.md
